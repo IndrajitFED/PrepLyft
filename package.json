@@ -1,0 +1,56 @@
+{
+  "name": "interview-booking-app",
+  "version": "1.0.0",
+  "description": "Complete Interview Booking Web Application",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail --prefix \"[{name}]\" --names \"BACKEND,FRONTEND\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:watch": "concurrently --kill-others-on-fail --prefix \"[{name}]\" --names \"BACKEND,FRONTEND\" \"npm run dev:watch:backend\" \"npm run dev:watch:frontend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:watch:frontend": "cd frontend && npm run dev:watch",
+    "dev:watch:backend": "cd backend && npm run dev",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "build:watch": "concurrently --kill-others-on-fail --prefix \"[{name}]\" --names \"BACKEND,FRONTEND\" \"npm run build:watch:frontend\" \"npm run build:watch:backend\"",
+    "build:watch:frontend": "cd frontend && npm run build:watch",
+    "build:watch:backend": "cd backend && npm run build:watch",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "start": "cd backend && npm start",
+    "clean": "npm run clean:frontend && npm run clean:backend",
+    "clean:frontend": "cd frontend && npm run clean",
+    "clean:backend": "cd backend && npm run clean",
+    "setup": "npm run install:all",
+    "start:dev": "npm run dev:watch",
+    "setup:google-api": "node scripts/setup-google-api.js",
+    "test:google-meet": "curl -X GET http://localhost:5000/api/smart-booking/test-google-meet",
+    "deploy:vercel-railway": "./scripts/deploy.sh vercel-railway",
+    "deploy:docker": "./scripts/deploy.sh docker",
+    "deploy:local": "./scripts/deploy.sh local",
+    "deploy:production": "./scripts/deploy.sh -e production vercel-railway",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:restart": "docker-compose restart",
+    "health:check": "curl -f http://localhost:5000/api/health && curl -f http://localhost:3000/health",
+    "deploy:budget": "./scripts/deploy-budget.sh cloudflare-digitalocean",
+    "deploy:oracle-free": "./scripts/deploy-budget.sh oracle-cloud",
+    "deploy:gcp": "./scripts/deploy-gcp.sh",
+    "deploy:single-cloud": "./scripts/deploy-gcp.sh",
+    "deploy:digitalocean": "./scripts/deploy-digitalocean.sh",
+    "deploy:droplet": "./scripts/deploy-digitalocean.sh",
+    "setup:env": "./scripts/setup-env.sh"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 

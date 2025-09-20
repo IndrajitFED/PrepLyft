@@ -1,0 +1,34 @@
+name = "interview-booking-frontend"
+compatibility_date = "2023-05-18"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+vars = { 
+  VITE_API_URL = "https://api.your-domain.com",
+  VITE_APP_NAME = "MockAce"
+}
+
+[env.staging]
+vars = { 
+  VITE_API_URL = "https://staging-api.your-domain.com",
+  VITE_APP_NAME = "MockAce Staging"
+}
+
+# Cloudflare Pages configuration
+[build]
+command = "npm run build"
+cwd = "frontend"
+watch_dir = "frontend"
+
+[build.upload]
+format = "directory"
+dir = "frontend/dist"
+
+# Custom domains
+[[routes]]
+pattern = "your-domain.com/*"
+zone_name = "your-domain.com"
+
+[[routes]]
+pattern = "www.your-domain.com/*"
+zone_name = "your-domain.com"

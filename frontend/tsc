@@ -1,0 +1,10 @@
+
+You are using Node.js 22.0.0. Vite requires Node.js version 20.19+ or 22.12+. Please upgrade your Nod
+You are using Node.js 22.0.0. Vite requires Node.js version 20.19+ or 22.12+. Please upgrade your Node.js version.
+vite v7.1.3 building for production...
+✓ 1422 modules transformed.
+dist/index.html                   0.74 kB │ gzip:  0.42 kB
+dist/assets/index-BvfGDoxZ.css   27.88 kB │ gzip:  5.08 kB
+dist/assets/index-C_cbhnp8.js   323.73 kB │ gzip: 90.28 kB
+✓ built in 1.14sclear
+clear
