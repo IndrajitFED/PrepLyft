@@ -1,6 +1,5 @@
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
-import { GetAccessTokenResponse } from 'google-auth-library/build/src/auth/authclient';
 
 export interface GoogleMeetEvent {
   summary: string;
