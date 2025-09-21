@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
+import { GetAccessTokenResponse } from 'google-auth-library/build/src/auth/authclient';
 
 export interface GoogleMeetEvent {
   summary: string;
@@ -291,7 +292,7 @@ export class GoogleMeetService {
     access_token: string;
     refresh_token: string;
   }> {
-    const { tokens } = await this.oauth2Client.getAccessToken(code);
+    const { tokens } = await this.oauth2Client.getToken(code);
     return {
       access_token: tokens.access_token || '',
       refresh_token: tokens.refresh_token || ''
