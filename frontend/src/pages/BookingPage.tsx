@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Code, Database, BarChart3, Cpu, Users, CreditCard, CheckCircle } from 'lucide-react'
 import Header from '../components/Header'
+import Footer from '../components/Footer'
 import SmartBookingCalendar from '../components/SmartBookingCalendar'
+import { getApiUrl } from '../utils/env'
 
 // TypeScript interfaces
 declare global {
@@ -81,7 +83,7 @@ const BookingPage: React.FC = () => {
   // Fetch session types and pricing from backend
   const fetchSessionTypes = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/pricing/sessions')
+      const response = await fetch(getApiUrl('api/pricing/sessions'))
       const data = await response.json()
       
       if (data.success) {
@@ -105,7 +107,7 @@ const BookingPage: React.FC = () => {
   // Fetch available mentors for a field
   const fetchAvailableMentors = async (field: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/mentor-assignment/available/${field}`)
+      const response = await fetch(getApiUrl(`api/mentor-assignment/available/${field}`))
       const data = await response.json()
       
       if (data.success && data.data.mentors.length > 0) {
@@ -144,7 +146,7 @@ const BookingPage: React.FC = () => {
 
     setBookingLoading(true)
     try {
-      const response = await fetch('http://localhost:5000/api/smart-booking/book-smart', {
+      const response = await fetch(getApiUrl('api/smart-booking/book-smart'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -164,6 +166,7 @@ const BookingPage: React.FC = () => {
       if (data.success) {
         console.log('Session booked successfully:', data)
         // Redirect to candidate dashboard with success message
+        
         navigate('/dashboard', { 
           state: { 
             bookingSuccess: true,
@@ -222,7 +225,7 @@ const BookingPage: React.FC = () => {
   // Create payment order
   const createPaymentOrder = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/payments/create-order', {
+      const response = await fetch(getApiUrl('api/payments/create-order'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -278,7 +281,7 @@ const BookingPage: React.FC = () => {
         handler: async function (response: any) {
           try {
             // Verify payment on backend
-            const verifyResponse = await fetch('http://localhost:5000/api/payments/verify', {
+            const verifyResponse = await fetch(getApiUrl('api/payments/verify'), {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -619,6 +622,7 @@ const BookingPage: React.FC = () => {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   )
 }

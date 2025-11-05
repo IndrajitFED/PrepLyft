@@ -24,15 +24,15 @@ const mapFieldToSessionType = (field: string): 'DSA' | 'Data Science' | 'Analyti
 
 const router = express.Router()
 
-// Razorpay configuration
-const RAZORPAY_KEY_ID = "rzp_test_RCoLR9QellVUtF"
-const RAZORPAY_KEY_SECRET = "IGTN9UfkeDMvx3TNKpDYhHuO"
+// Razorpay configuration from environment variables
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET
 
 // Validate environment variables
 if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-  console.error('Razorpay credentials not found in environment variables')
-  console.error('RAZORPAY_KEY_ID:', RAZORPAY_KEY_ID ? 'Set' : 'Missing')
-  console.error('RAZORPAY_KEY_SECRET:', RAZORPAY_KEY_SECRET ? 'Set' : 'Missing')
+  console.warn('⚠️  Razorpay credentials not found in environment variables')
+  console.warn('RAZORPAY_KEY_ID:', RAZORPAY_KEY_ID ? 'Set' : 'Missing')
+  console.warn('RAZORPAY_KEY_SECRET:', RAZORPAY_KEY_SECRET ? 'Set' : 'Missing')
 }
 
 // Initialize Razorpay instance only if credentials are available
@@ -43,9 +43,9 @@ if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
     key_id: RAZORPAY_KEY_ID,
     key_secret: RAZORPAY_KEY_SECRET
   })
-  console.log('Razorpay initialized successfully')
+  console.log('✅ Razorpay initialized successfully')
 } else {
-  console.warn('Razorpay not initialized - missing credentials')
+  console.warn('⚠️  Razorpay not initialized - missing credentials')
 }
 
 // @route   POST /api/payments/create-order

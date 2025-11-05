@@ -33,19 +33,38 @@ router.get('/connect', [
 // @desc    Handle Google Calendar OAuth callback (GET request from Google)
 // @access  Public (OAuth callback)
 router.get('/callback', asyncHandler(async (req: express.Request, res: express.Response) => {
-  const { code, state } = req.query
+  const { code, state, error } = req.query
+
+  console.log('🔄 OAuth callback received:', { 
+    hasCode: !!code, 
+    hasState: !!state, 
+    error: error,
+    query: req.query 
+  })
+
+  // Check if Google returned an error
+  if (error) {
+    console.error('❌ OAuth error from Google:', error)
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '')
+    return res.redirect(`${frontendUrl}/mentor?calendar=error&reason=${error}`)
+  }
 
   if (!code) {
-    return ResponseHandler.error(res, 'Authorization code is required', 400)
+    console.error('❌ No authorization code received from Google')
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '')
+    return res.redirect(`${frontendUrl}/mentor?calendar=error&reason=no_code`)
   }
 
   if (!state) {
-    return ResponseHandler.error(res, 'State parameter is required', 400)
+    console.error('❌ No state parameter received from Google')
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '')
+    return res.redirect(`${frontendUrl}/mentor?calendar=error&reason=no_state`)
   }
 
   try {
     // The state parameter contains the mentorId
     const mentorId = state as string
+    console.log('📝 Processing OAuth callback for mentor:', mentorId)
     const success = await MentorCalendarService.handleCallback(code as string, mentorId)
     
     if (!success) {
@@ -53,12 +72,18 @@ router.get('/callback', asyncHandler(async (req: express.Request, res: express.R
     }
 
     // Redirect to frontend with success message
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
-    return res.redirect(`${frontendUrl}/mentor?calendar=connected`)
+    // Remove trailing slash from FRONTEND_URL to avoid double slashes
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '')
+    const redirectUrl = `${frontendUrl}/mentor?calendar=connected`
+    console.log('✅ OAuth callback successful, redirecting to:', redirectUrl)
+    return res.redirect(redirectUrl)
   } catch (error) {
-    console.error('Error handling callback:', error)
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
-    return res.redirect(`${frontendUrl}/mentor?calendar=error`)
+    console.error('❌ Error handling callback:', error)
+    // Remove trailing slash from FRONTEND_URL to avoid double slashes
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '')
+    const redirectUrl = `${frontendUrl}/mentor?calendar=error`
+    console.log('⚠️  OAuth callback failed, redirecting to:', redirectUrl)
+    return res.redirect(redirectUrl)
   }
 }))
 
@@ -122,7 +147,7 @@ router.delete('/disconnect', [
 }))
 
 // @route   GET /api/mentor-calendar/status
-// @desc    Get mentor's calendar connection status
+// @desc    Get mentor's calendar connection status (verifies actual tokens exist)
 // @access  Private (Mentor only)
 router.get('/status', [
   auth,
@@ -133,9 +158,20 @@ router.get('/status', [
   try {
     const credentials = await MentorCalendarService.getMentorCredentials(mentorId)
     
+    // Only return connected if we have actual refresh token (not just a flag)
+    const isConnected = !!(credentials?.refreshToken && credentials?.refreshToken.trim().length > 0)
+    
+    console.log('📊 Calendar status check for mentor:', mentorId, {
+      hasRefreshToken: !!credentials?.refreshToken,
+      hasAccessToken: !!credentials?.accessToken,
+      isConnectedFlag: !!credentials?.isConnected,
+      actualConnected: isConnected
+    })
+    
     return ResponseHandler.success(res, { 
-      isConnected: !!credentials?.isConnected,
-      calendarId: credentials?.calendarId || 'primary'
+      isConnected,
+      calendarId: credentials?.calendarId || 'primary',
+      hasTokens: !!(credentials?.refreshToken || credentials?.accessToken)
     }, 'Calendar status retrieved successfully')
   } catch (error) {
     console.error('Error getting calendar status:', error)

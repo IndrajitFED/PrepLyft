@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, Users, CheckCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import Header from '../components/Header'
+import Footer from '../components/Footer'
 import SessionModal from '../components/SessionModal'
+import { getApiUrl } from '../utils/env'
 
 interface CalendarStatus {
   isConnected: boolean
@@ -46,7 +48,7 @@ const MentorDashboard: React.FC = () => {
   // Fetch calendar status
   const fetchCalendarStatus = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/mentor-calendar/status', {
+      const response = await fetch(getApiUrl('api/mentor-calendar/status'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -55,9 +57,20 @@ const MentorDashboard: React.FC = () => {
       
       if (data.success) {
         setCalendarStatus(data.data)
+        
+        // Log connection details for debugging
+        console.log('📊 Calendar status:', {
+          isConnected: data.data.isConnected,
+          hasTokens: data.data.hasTokens,
+          calendarId: data.data.calendarId
+        })
+      } else {
+        // If status check fails, treat as not connected
+        setCalendarStatus({ isConnected: false, calendarId: 'primary' })
       }
     } catch (error) {
       console.error('Error fetching calendar status:', error)
+      setCalendarStatus({ isConnected: false, calendarId: 'primary' })
     }
   }
 
@@ -69,11 +82,14 @@ const MentorDashboard: React.FC = () => {
     if (calendarStatus === 'connected') {
       // Refresh calendar status and show success message
       fetchCalendarStatus()
-      // You can add a toast notification here
-      console.log('Calendar connected successfully!')
+      // Clear the prompt flag since we're now connected
+      localStorage.removeItem('mentor_calendar_prompt_shown')
+      console.log('✅ Calendar connected successfully!')
+      alert('✅ Google Calendar connected successfully! You can now approve sessions to automatically create calendar invites.')
     } else if (calendarStatus === 'error') {
       // Show error message
-      console.error('Calendar connection failed!')
+      console.error('❌ Calendar connection failed!')
+      alert('❌ Failed to connect Google Calendar. Please try again.')
     }
   }, [])
 
@@ -81,7 +97,7 @@ const MentorDashboard: React.FC = () => {
   const fetchSessions = async () => {
     try {
       console.log('Fetching sessions for mentor...')
-      const response = await fetch('http://localhost:5000/api/sessions/mentor', {
+      const response = await fetch(getApiUrl('api/sessions/mentor'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -105,7 +121,7 @@ const MentorDashboard: React.FC = () => {
   const connectCalendar = async () => {
     try {
       setConnecting(true)
-      const response = await fetch('http://localhost:5000/api/mentor-calendar/connect', {
+      const response = await fetch(getApiUrl('api/mentor-calendar/connect'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -125,7 +141,7 @@ const MentorDashboard: React.FC = () => {
   // Disconnect Google Calendar
   const disconnectCalendar = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/mentor-calendar/disconnect', {
+      const response = await fetch(getApiUrl('api/mentor-calendar/disconnect'), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -158,7 +174,7 @@ const MentorDashboard: React.FC = () => {
   const handleApproveSession = async (sessionId: string) => {
     setActionLoading(true)
     try {
-      const response = await fetch(`http://localhost:5000/api/sessions/${sessionId}/approve`, {
+      const response = await fetch(getApiUrl(`api/sessions/${sessionId}/approve`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -192,7 +208,7 @@ const MentorDashboard: React.FC = () => {
   const handleCancelSession = async (sessionId: string) => {
     setActionLoading(true)
     try {
-      const response = await fetch(`http://localhost:5000/api/sessions/${sessionId}/cancel`, {
+      const response = await fetch(getApiUrl(`api/sessions/${sessionId}/cancel`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -221,7 +237,7 @@ const MentorDashboard: React.FC = () => {
   // Approve a pending session (legacy function)
   const approveSession = async (sessionId: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/sessions/${sessionId}/approve`, {
+      const response = await fetch(getApiUrl(`api/sessions/${sessionId}/approve`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -252,7 +268,7 @@ const MentorDashboard: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/sessions/${sessionId}/cancel`, {
+      const response = await fetch(getApiUrl(`api/sessions/${sessionId}/cancel`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -380,6 +396,33 @@ const MentorDashboard: React.FC = () => {
     return () => clearInterval(interval)
   }, [])
 
+  // Auto-prompt for Google Calendar connection on first visit if not connected
+  useEffect(() => {
+    if (loading || !calendarStatus) return
+
+    const hasShownPrompt = localStorage.getItem('mentor_calendar_prompt_shown')
+    const shouldPrompt = !calendarStatus.isConnected && !hasShownPrompt
+
+    if (shouldPrompt) {
+      // Mark prompt as shown
+      localStorage.setItem('mentor_calendar_prompt_shown', 'true')
+      
+      // Show prompt after a short delay to let page load
+      setTimeout(() => {
+        const shouldConnect = window.confirm(
+          '🔗 Connect Your Google Calendar\n\n' +
+          'To automatically create calendar invites when you approve sessions, ' +
+          'please connect your Google Calendar. You\'ll be redirected to Google to grant access.\n\n' +
+          'Click OK to connect now.'
+        )
+
+        if (shouldConnect) {
+          connectCalendar()
+        }
+      }, 1000)
+    }
+  }, [loading, calendarStatus])
+
 
   if (loading) {
     return (
@@ -413,18 +456,23 @@ const MentorDashboard: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Calendar Connection Status */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
+        <div className={`rounded-lg shadow p-6 mb-8 ${calendarStatus?.isConnected ? 'bg-white' : 'bg-yellow-50 border-2 border-yellow-300'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Calendar className="w-8 h-8 text-blue-600" />
+              <Calendar className={`w-8 h-8 ${calendarStatus?.isConnected ? 'text-blue-600' : 'text-yellow-600'}`} />
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">Google Calendar</h2>
-                <p className="text-gray-600">
+                <p className={calendarStatus?.isConnected ? 'text-gray-600' : 'text-yellow-800 font-medium'}>
                   {calendarStatus?.isConnected 
-                    ? `Connected to ${calendarStatus.calendarId}` 
-                    : 'Not connected to Google Calendar'
+                    ? `✅ Connected to ${calendarStatus.calendarId}` 
+                    : '⚠️ Not connected - Connect to automatically create calendar invites'
                   }
                 </p>
+                {!calendarStatus?.isConnected && (
+                  <p className="text-sm text-yellow-700 mt-1">
+                    You need to connect your Google Calendar to receive automatic calendar invites when approving sessions.
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -442,9 +490,9 @@ const MentorDashboard: React.FC = () => {
                 <button
                   onClick={connectCalendar}
                   disabled={connecting}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium shadow-md"
                 >
-                  {connecting ? 'Connecting...' : 'Connect Calendar'}
+                  {connecting ? 'Connecting...' : '🔗 Connect Calendar'}
                 </button>
               )}
             </div>
@@ -750,7 +798,7 @@ const MentorDashboard: React.FC = () => {
             <button
               onClick={async () => {
                 try {
-                  const response = await fetch('http://localhost:5000/api/sessions/test-create', {
+                  const response = await fetch(getApiUrl('api/sessions/test-create'), {
                     method: 'POST',
                     headers: {
                       'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -784,6 +832,7 @@ const MentorDashboard: React.FC = () => {
         onCancel={handleCancelSession}
         loading={actionLoading}
       />
+      <Footer />
     </div>
   )
 }

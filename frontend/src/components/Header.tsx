@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Code, User, LogOut, Settings, Calendar, Users } from 'lucide-react'
+import { Code, User, LogOut, Settings, Calendar, Users, ChevronDown, FileText, Shield, Mail, RotateCcw, Package } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 interface HeaderProps {
@@ -12,6 +12,8 @@ const Header: React.FC<HeaderProps> = ({ showUserMenu = true }) => {
   const navigate = useNavigate()
   const location = useLocation()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [isLegalDropdownOpen, setIsLegalDropdownOpen] = useState(false)
+  const legalDropdownRef = useRef<HTMLDivElement>(null)
 
   const handleLogout = () => {
     logout()
@@ -23,52 +25,194 @@ const Header: React.FC<HeaderProps> = ({ showUserMenu = true }) => {
     return location.pathname === path
   }
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (legalDropdownRef.current && !legalDropdownRef.current.contains(event.target as Node)) {
+        setIsLegalDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  const handleSectionClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault()
+    const href = e.currentTarget.getAttribute('href')
+    if (href && href.startsWith('#')) {
+      const element = document.querySelector(href)
+      if (element) {
+        const headerOffset = 80
+        const elementPosition = element.getBoundingClientRect().top
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset
+        
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        })
+      }
+    }
+  }
+
   const getNavigationItems = () => {
     if (!user) {
       return (
         <>
-          <Link to="#features" className="text-gray-600 hover:text-gray-900">Features</Link>
-          <Link to="#pricing" className="text-gray-600 hover:text-gray-900">Pricing</Link>
-          <Link to="#reviews" className="text-gray-600 hover:text-gray-900">Reviews</Link>
+          <Link to="#pricing" onClick={handleSectionClick} className="text-gray-600 hover:text-gray-900 transition-colors">Pricing</Link>
+          <Link to="#features" onClick={handleSectionClick} className="text-gray-600 hover:text-gray-900 transition-colors">Features</Link>
+          <Link to="#faq" onClick={handleSectionClick} className="text-gray-600 hover:text-gray-900 transition-colors">FAQ</Link>
+          <Link to="/contact" className={`transition-colors ${isActive('/contact') ? 'text-primary-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}>Contact</Link>
+          
+          {/* Legal/Resources Mega Menu */}
+          <div className="relative" ref={legalDropdownRef}>
+            <button
+              onClick={() => setIsLegalDropdownOpen(!isLegalDropdownOpen)}
+              className={`flex items-center space-x-1 text-gray-600 hover:text-gray-900 transition-colors ${
+                ['/terms', '/privacy', '/shipping', '/cancellation'].includes(location.pathname) 
+                  ? 'text-primary-600 font-medium' 
+                  : ''
+              }`}
+            >
+              <span>Legal</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${isLegalDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {isLegalDropdownOpen && (
+              <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
+                <Link
+                  to="/contact"
+                  onClick={() => setIsLegalDropdownOpen(false)}
+                  className={`flex items-center px-4 py-3 hover:bg-gray-50 transition-colors ${
+                    isActive('/contact') ? 'bg-primary-50 text-primary-600' : 'text-gray-700'
+                  }`}
+                >
+                  <Mail className="w-4 h-4 mr-3" />
+                  <span>Contact Us</span>
+                </Link>
+                <Link
+                  to="/terms"
+                  onClick={() => setIsLegalDropdownOpen(false)}
+                  className={`flex items-center px-4 py-3 hover:bg-gray-50 transition-colors ${
+                    isActive('/terms') ? 'bg-primary-50 text-primary-600' : 'text-gray-700'
+                  }`}
+                >
+                  <FileText className="w-4 h-4 mr-3" />
+                  <span>Terms & Conditions</span>
+                </Link>
+                <Link
+                  to="/privacy"
+                  onClick={() => setIsLegalDropdownOpen(false)}
+                  className={`flex items-center px-4 py-3 hover:bg-gray-50 transition-colors ${
+                    isActive('/privacy') ? 'bg-primary-50 text-primary-600' : 'text-gray-700'
+                  }`}
+                >
+                  <Shield className="w-4 h-4 mr-3" />
+                  <span>Privacy Policy</span>
+                </Link>
+                <Link
+                  to="/shipping"
+                  onClick={() => setIsLegalDropdownOpen(false)}
+                  className={`flex items-center px-4 py-3 hover:bg-gray-50 transition-colors ${
+                    isActive('/shipping') ? 'bg-primary-50 text-primary-600' : 'text-gray-700'
+                  }`}
+                >
+                  <Package className="w-4 h-4 mr-3" />
+                  <span>Shipping Policy</span>
+                </Link>
+                <Link
+                  to="/cancellation"
+                  onClick={() => setIsLegalDropdownOpen(false)}
+                  className={`flex items-center px-4 py-3 hover:bg-gray-50 transition-colors ${
+                    isActive('/cancellation') ? 'bg-primary-50 text-primary-600' : 'text-gray-700'
+                  }`}
+                >
+                  <RotateCcw className="w-4 h-4 mr-3" />
+                  <span>Cancellation & Refunds</span>
+                </Link>
+              </div>
+            )}
+          </div>
         </>
       )
     }
 
-    // User-specific navigation based on role
-    if (user.role === 'mentor') {
-      return (
-        <>
-          <Link 
-            to="/mentor" 
-            className={`text-gray-600 hover:text-gray-900 ${isActive('/mentor') ? 'text-primary-600 font-medium' : ''}`}
-          >
-            Dashboard
-          </Link>
-          <Link to="#calendar" className="text-gray-600 hover:text-gray-900">Calendar</Link>
-        </>
-      )
-    } else if (user.role === 'candidate') {
-      return (
-        <>
-          <Link 
-            to="/candidate" 
-            className={`text-gray-600 hover:text-gray-900 ${isActive('/candidate') ? 'text-primary-600 font-medium' : ''}`}
-          >
-            Dashboard
-          </Link>
-          <Link 
-            to="/booking" 
-            className={`text-gray-600 hover:text-gray-900 ${isActive('/booking') ? 'text-primary-600 font-medium' : ''}`}
-          >
-            Book Session
-          </Link>
-        </>
-      )
-    }
-
+    // User-specific navigation when logged in
     return (
       <>
-        <Link to="/dashboard" className="text-gray-600 hover:text-gray-900">Dashboard</Link>
+        <Link to="/contact" className={`transition-colors ${isActive('/contact') ? 'text-primary-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}>Contact</Link>
+        
+        {/* Legal/Resources Mega Menu */}
+        <div className="relative" ref={legalDropdownRef}>
+          <button
+            onClick={() => setIsLegalDropdownOpen(!isLegalDropdownOpen)}
+            className={`flex items-center space-x-1 text-gray-600 hover:text-gray-900 transition-colors ${
+              ['/terms', '/privacy', '/shipping', '/cancellation'].includes(location.pathname) 
+                ? 'text-primary-600 font-medium' 
+                : ''
+            }`}
+          >
+            <span>Legal</span>
+            <ChevronDown className={`w-4 h-4 transition-transform ${isLegalDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {isLegalDropdownOpen && (
+            <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
+              <Link
+                to="/contact"
+                onClick={() => setIsLegalDropdownOpen(false)}
+                className={`flex items-center px-4 py-3 hover:bg-gray-50 transition-colors ${
+                  isActive('/contact') ? 'bg-primary-50 text-primary-600' : 'text-gray-700'
+                }`}
+              >
+                <Mail className="w-4 h-4 mr-3" />
+                <span>Contact Us</span>
+              </Link>
+              <Link
+                to="/terms"
+                onClick={() => setIsLegalDropdownOpen(false)}
+                className={`flex items-center px-4 py-3 hover:bg-gray-50 transition-colors ${
+                  isActive('/terms') ? 'bg-primary-50 text-primary-600' : 'text-gray-700'
+                }`}
+              >
+                <FileText className="w-4 h-4 mr-3" />
+                <span>Terms & Conditions</span>
+              </Link>
+              <Link
+                to="/privacy"
+                onClick={() => setIsLegalDropdownOpen(false)}
+                className={`flex items-center px-4 py-3 hover:bg-gray-50 transition-colors ${
+                  isActive('/privacy') ? 'bg-primary-50 text-primary-600' : 'text-gray-700'
+                }`}
+              >
+                <Shield className="w-4 h-4 mr-3" />
+                <span>Privacy Policy</span>
+              </Link>
+              <Link
+                to="/shipping"
+                onClick={() => setIsLegalDropdownOpen(false)}
+                className={`flex items-center px-4 py-3 hover:bg-gray-50 transition-colors ${
+                  isActive('/shipping') ? 'bg-primary-50 text-primary-600' : 'text-gray-700'
+                }`}
+              >
+                <Package className="w-4 h-4 mr-3" />
+                <span>Shipping Policy</span>
+              </Link>
+              <Link
+                to="/cancellation"
+                onClick={() => setIsLegalDropdownOpen(false)}
+                className={`flex items-center px-4 py-3 hover:bg-gray-50 transition-colors ${
+                  isActive('/cancellation') ? 'bg-primary-50 text-primary-600' : 'text-gray-700'
+                }`}
+              >
+                <RotateCcw className="w-4 h-4 mr-3" />
+                <span>Cancellation & Refunds</span>
+              </Link>
+            </div>
+          )}
+        </div>
       </>
     )
   }
@@ -78,7 +222,7 @@ const Header: React.FC<HeaderProps> = ({ showUserMenu = true }) => {
       return (
         <div className="flex items-center space-x-4">
           <Link to="/login" className="text-gray-600 hover:text-gray-900">Login</Link>
-          <Link to="/register" className="btn-primary">Start Free Trial</Link>
+          <Link to="/register" className="btn-primary">Register</Link>
         </div>
       )
     }
@@ -108,7 +252,7 @@ const Header: React.FC<HeaderProps> = ({ showUserMenu = true }) => {
               </div>
               
               <Link
-                to={user.role === 'mentor' ? '/mentor' : user.role === 'candidate' ? '/candidate' : '/dashboard'}
+                to='/dashboard'
                 className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 onClick={() => setIsDropdownOpen(false)}
               >
@@ -173,10 +317,23 @@ const Header: React.FC<HeaderProps> = ({ showUserMenu = true }) => {
         </div>
       </div>
 
-      {/* Mobile menu button */}
+      {/* Mobile menu */}
       <div className="md:hidden">
         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-          {getNavigationItems()}
+          <Link to="#pricing" onClick={handleSectionClick} className="block px-3 py-2 text-gray-600 hover:text-gray-900">Pricing</Link>
+          <Link to="#features" onClick={handleSectionClick} className="block px-3 py-2 text-gray-600 hover:text-gray-900">Features</Link>
+          <Link to="#faq" onClick={handleSectionClick} className="block px-3 py-2 text-gray-600 hover:text-gray-900">FAQ</Link>
+          <Link to="/contact" className={`block px-3 py-2 ${isActive('/contact') ? 'text-primary-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}>Contact</Link>
+          <div className="px-3 py-2">
+            <div className="font-medium text-gray-700 mb-2">Legal</div>
+            <div className="ml-4 space-y-1">
+              <Link to="/contact" className={`block px-3 py-2 rounded-md ${isActive('/contact') ? 'bg-primary-50 text-primary-600' : 'text-gray-600 hover:bg-gray-50'}`}>Contact Us</Link>
+              <Link to="/terms" className={`block px-3 py-2 rounded-md ${isActive('/terms') ? 'bg-primary-50 text-primary-600' : 'text-gray-600 hover:bg-gray-50'}`}>Terms & Conditions</Link>
+              <Link to="/privacy" className={`block px-3 py-2 rounded-md ${isActive('/privacy') ? 'bg-primary-50 text-primary-600' : 'text-gray-600 hover:bg-gray-50'}`}>Privacy Policy</Link>
+              <Link to="/shipping" className={`block px-3 py-2 rounded-md ${isActive('/shipping') ? 'bg-primary-50 text-primary-600' : 'text-gray-600 hover:bg-gray-50'}`}>Shipping Policy</Link>
+              <Link to="/cancellation" className={`block px-3 py-2 rounded-md ${isActive('/cancellation') ? 'bg-primary-50 text-primary-600' : 'text-gray-600 hover:bg-gray-50'}`}>Cancellation & Refunds</Link>
+            </div>
+          </div>
         </div>
       </div>
     </header>

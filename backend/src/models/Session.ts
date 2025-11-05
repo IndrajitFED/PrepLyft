@@ -17,11 +17,11 @@ export interface ISession extends Document {
   googleEventId?: string // Google Calendar event ID
   notes?: string
   feedback?: {
-    technical: number
     communication: number
     problemSolving: number
-    overall: number
-    comments: string
+    codeQuality: number
+    domain: string // Domain the candidate is good at
+    comments?: string
     mentor: mongoose.Types.ObjectId
     createdAt: Date
   }
@@ -106,25 +106,25 @@ const sessionSchema = new Schema<ISession>({
     maxlength: [1000, 'Notes cannot exceed 1000 characters']
   },
   feedback: {
-    technical: {
-      type: Number,
-      min: [1, 'Rating must be at least 1'],
-      max: [10, 'Rating cannot exceed 10']
-    },
     communication: {
       type: Number,
-      min: [1, 'Rating must be at least 1'],
-      max: [10, 'Rating cannot exceed 10']
+      min: [1, 'Communication rating must be at least 1'],
+      max: [10, 'Communication rating cannot exceed 10']
     },
     problemSolving: {
       type: Number,
-      min: [1, 'Rating must be at least 1'],
-      max: [10, 'Rating cannot exceed 10']
+      min: [1, 'Problem solving rating must be at least 1'],
+      max: [10, 'Problem solving rating cannot exceed 10']
     },
-    overall: {
+    codeQuality: {
       type: Number,
-      min: [1, 'Rating must be at least 1'],
-      max: [10, 'Rating cannot exceed 10']
+      min: [1, 'Code quality rating must be at least 1'],
+      max: [10, 'Code quality rating cannot exceed 10']
+    },
+    domain: {
+      type: String,
+      trim: true,
+      maxlength: [100, 'Domain cannot exceed 100 characters']
     },
     comments: {
       type: String,
