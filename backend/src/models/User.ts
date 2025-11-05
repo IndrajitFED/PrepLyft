@@ -6,6 +6,7 @@ export interface IUser extends Document {
   email: string
   password: string
   role: 'candidate' | 'mentor' | 'admin'
+  googleId?: string // For Google OAuth
   avatar?: string
   phone?: string
   bio?: string
@@ -27,10 +28,21 @@ export interface IUser extends Document {
   }
   isVerified: boolean
   credits: number
-  rating: number
-  averageRating?: number // New field for mentor average rating
+  averageRating?: number // For mentors: average rating
   totalSessions: number
   completedSessions: number
+  totalScore?: number // Total score for leaderboard (sum of all feedback scores)
+  // Subscription plan fields
+  subscriptionPlan?: 'basic' | 'standard' | 'premium' | null
+  // Track DSA and random subject interviews separately
+  dsaInterviewsUsed?: number
+  dsaInterviewsLimit?: number
+  randomInterviewsUsed?: number
+  randomInterviewsLimit?: number
+  // Legacy fields (deprecated)
+  subscriptionExpiresAt?: Date
+  interviewsUsed: number // Track how many interviews have been used
+  interviewsLimit: number // Total interviews allowed based on plan
   createdAt: Date
   updatedAt: Date
   comparePassword(candidatePassword: string): Promise<boolean>
@@ -53,8 +65,16 @@ const userSchema = new Schema<IUser>({
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters']
+    required: function(this: IUser) {
+      return !this.googleId // Password not required if Google OAuth
+    },
+    minlength: [6, 'Password must be at least 6 characters'],
+    select: false
+  },
+  googleId: {
+    type: String,
+    sparse: true, // Allows multiple null values but only one non-null
+    unique: true
   },
   role: {
     type: String,
@@ -139,12 +159,6 @@ const userSchema = new Schema<IUser>({
     default: 0,
     min: [0, 'Credits cannot be negative']
   },
-  rating: {
-    type: Number,
-    default: 0,
-    min: [0, 'Rating cannot be negative'],
-    max: [5, 'Rating cannot be more than 5']
-  },
   averageRating: {
     type: Number,
     default: 4.5,
@@ -160,6 +174,48 @@ const userSchema = new Schema<IUser>({
     type: Number,
     default: 0,
     min: [0, 'Completed sessions cannot be negative']
+  },
+  totalScore: {
+    type: Number,
+    default: 0,
+    min: [0, 'Total score cannot be negative']
+  },
+  subscriptionPlan: {
+    type: String,
+    enum: ['basic', 'standard', 'premium'],
+    default: null
+  },
+  // Track DSA and random subject interviews separately
+  dsaInterviewsUsed: {
+    type: Number,
+    default: 0,
+    min: [0, 'DSA interviews used cannot be negative']
+  },
+  dsaInterviewsLimit: {
+    type: Number,
+    default: 0,
+    min: [0, 'DSA interview limit cannot be negative']
+  },
+  randomInterviewsUsed: {
+    type: Number,
+    default: 0,
+    min: [0, 'Random interviews used cannot be negative']
+  },
+  randomInterviewsLimit: {
+    type: Number,
+    default: 0,
+    min: [0, 'Random interview limit cannot be negative']
+  },
+  // Legacy fields (kept for backward compatibility, but deprecated)
+  interviewsUsed: {
+    type: Number,
+    default: 0,
+    min: [0, 'Interviews used cannot be negative']
+  },
+  interviewsLimit: {
+    type: Number,
+    default: 0,
+    min: [0, 'Interview limit cannot be negative']
   }
 }, {
   timestamps: true
@@ -172,11 +228,12 @@ userSchema.index({ skills: 1 })
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next()
+  const doc = this as any
+  if (!doc.isModified('password')) return next()
   
   try {
     const salt = await bcrypt.genSalt(12)
-    this.password = await bcrypt.hash(this.password, salt)
+    doc.password = await bcrypt.hash(doc.password, salt)
     next()
   } catch (error: any) {
     next(error)
@@ -185,7 +242,7 @@ userSchema.pre('save', async function(next) {
 
 // Compare password method
 userSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
-  return bcrypt.compare(candidatePassword, this.password)
+  return bcrypt.compare(candidatePassword, (this as any).password)
 }
 
 // Remove password from JSON output

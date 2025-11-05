@@ -2,61 +2,38 @@ import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 
 export class GoogleCalendarService {
-  private oauth2Client: OAuth2Client;
+  private oauth2Client: OAuth2Client | null = null;
   private calendar: any;
   private isAuthenticated: boolean = false;
 
+  private initializeOAuth2Client() {
+    if (!this.oauth2Client) {
+      if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+        throw new Error('GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in environment variables')
+      }
+      
+      this.oauth2Client = new OAuth2Client(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/mentor-calendar/callback'
+      );
+      
+      this.calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+      this.setupAuth();
+    }
+    return this.oauth2Client;
+  }
+
   constructor() {
-    this.oauth2Client = new OAuth2Client(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/mentor-calendar/callback'
-    );
-    
-    this.calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
-    this.setupAuth();
+    // Lazy initialization - don't initialize OAuth2Client until actually needed
+    // This allows dotenv to load before validation
   }
 
   private async setupAuth() {
     try {
-      // Try to use service account if available
-      if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-        const auth = new google.auth.GoogleAuth({
-          credentials: serviceAccount,
-          scopes: ['https://www.googleapis.com/auth/calendar']
-        });
-        
-        this.calendar = google.calendar({ version: 'v3', auth });
-        this.isAuthenticated = true;
-        console.log('✅ Google Calendar authenticated with service account');
-        return;
-      }
-
-      // Try to use refresh token if available
-      if (process.env.GOOGLE_REFRESH_TOKEN) {
-        this.oauth2Client.setCredentials({
-          refresh_token: process.env.GOOGLE_REFRESH_TOKEN
-        });
-        this.isAuthenticated = true;
-        console.log('✅ Google Calendar authenticated with refresh token');
-        return;
-      }
-
-      // For development, use API key if available
-      if (process.env.GOOGLE_API_KEY) {
-        const auth = new google.auth.GoogleAuth({
-          apiKey: process.env.GOOGLE_API_KEY,
-          scopes: ['https://www.googleapis.com/auth/calendar']
-        });
-        
-        this.calendar = google.calendar({ version: 'v3', auth });
-        this.isAuthenticated = true;
-        console.log('✅ Google Calendar authenticated with API key');
-        return;
-      }
-
-      console.log('⚠️  Google Calendar authentication not configured. Google Meet links will be generated manually.');
+      // No global auth (no service account, no env refresh token). This helper stays unauthenticated.
+      // All real event creation should be done via MentorCalendarService (per-mentor OAuth).
+      console.log('ℹ️  GoogleCalendarService: global auth disabled. Using fallback when called.');
       this.isAuthenticated = false;
     } catch (error) {
       console.error('❌ Failed to setup Google Calendar authentication:', error);
@@ -175,7 +152,8 @@ Please join the session on time and ensure you have a stable internet connection
       const response = await this.calendar.events.insert({
         calendarId: 'primary',
         resource: event,
-        conferenceDataVersion: 1
+        conferenceDataVersion: 1,
+        sendUpdates: 'all'
       });
 
       const calendarEvent = response.data

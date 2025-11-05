@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Calendar, Clock, CheckCircle } from 'lucide-react'
+import { getApiUrl } from '../utils/env'
 
 interface AvailableSlot {
   id: string
@@ -54,7 +55,7 @@ const SmartBookingCalendar: React.FC<SmartBookingCalendarProps> = ({
     setError(null)
     
     try {
-      const response = await fetch(`http://localhost:5000/api/smart-booking/available-slots?field=${field}&date=${date}`, {
+      const response = await fetch(getApiUrl(`api/smart-booking/available-slots?field=${field}&date=${date}`), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

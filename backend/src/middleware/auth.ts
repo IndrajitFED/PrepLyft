@@ -26,7 +26,7 @@ export const auth = async (req: AuthRequest, res: Response, next: NextFunction):
       return
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JwtPayload
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload
     
     const user = await User.findById(decoded.userId)
 
@@ -70,7 +70,10 @@ export const optionalAuth = async (req: AuthRequest, res: Response, next: NextFu
     const token = req.header('Authorization')?.replace('Bearer ', '')
 
     if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JwtPayload
+      if (!process.env.JWT_SECRET) {
+        throw new Error('JWT_SECRET must be set in environment variables')
+      }
+      const decoded = jwt.verify(token, process.env.JWT_SECRET) as JwtPayload
       const user = await User.findById(decoded.userId)
       
       if (user) {

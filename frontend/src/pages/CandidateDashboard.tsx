@@ -14,9 +14,12 @@ import {
   HelpCircle,
   Star,
   Trophy,
-  ExternalLink
+  ExternalLink,
+  BookOpen
 } from 'lucide-react'
 import Header from '../components/Header'
+import Footer from '../components/Footer'
+import { getApiUrl } from '../utils/env'
 
 interface Session {
   _id: string
@@ -30,11 +33,11 @@ interface Session {
   meetingLink?: string
   googleEventId?: string
   feedback?: {
-    technical: number
     communication: number
     problemSolving: number
-    overall: number
-    comments: string
+    codeQuality: number
+    domain: string
+    comments?: string
     mentor: string
     createdAt: string
   }
@@ -71,6 +74,21 @@ interface DashboardStats {
   averageRating: number
 }
 
+interface Subscription {
+  plan: 'basic' | 'standard' | 'premium' | null
+  limit: number
+  used: number
+  remaining: number
+  expiresAt?: string
+  isExpired: boolean
+  planDetails?: {
+    name: string
+    interviews: number
+    price: number
+    features: string[]
+  }
+}
+
 const CandidateDashboard: React.FC = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -81,13 +99,14 @@ const CandidateDashboard: React.FC = () => {
     total: 0,
     averageRating: 0
   })
+  const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Fetch user sessions
   const fetchSessions = async () => {
     try {
       console.log('Fetching candidate sessions...')
-      const response = await fetch('http://localhost:5000/api/sessions/my-sessions', {
+      const response = await fetch(getApiUrl('api/sessions/my-sessions'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -132,7 +151,11 @@ const CandidateDashboard: React.FC = () => {
       session.status === 'completed' && session.feedback
     )
     const averageRating = completedWithFeedback.length > 0 
-      ? completedWithFeedback.reduce((sum, session) => sum + (session.feedback?.overall || 0), 0) / completedWithFeedback.length
+      ? completedWithFeedback.reduce((sum, session) => {
+          const avg = session.feedback ? 
+            ((session.feedback.communication || 0) + (session.feedback.problemSolving || 0) + (session.feedback.codeQuality || 0)) / 3 : 0
+          return sum + avg
+        }, 0) / completedWithFeedback.length
       : 0
     
     setStats({
@@ -252,12 +275,32 @@ const CandidateDashboard: React.FC = () => {
   }
 
   // Load sessions on component mount
+  // Fetch subscription info
+  const fetchSubscription = async () => {
+    try {
+      const response = await fetch(getApiUrl('api/subscriptions/my'), {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
+      const data = await response.json()
+      
+      if (data.success && data.data) {
+        setSubscription(data.data.subscription)
+      }
+    } catch (error) {
+      console.error('Error fetching subscription:', error)
+    }
+  }
+
   useEffect(() => {
     fetchSessions()
+    fetchSubscription()
     
     // Poll for updates every 30 seconds
     const interval = setInterval(() => {
       fetchSessions()
+      fetchSubscription()
     }, 30000)
     
     return () => clearInterval(interval)
@@ -269,6 +312,14 @@ const CandidateDashboard: React.FC = () => {
 
   const handleViewProgress = () => {
     navigate('/progress')
+  }
+
+  const handleCompanySheetsDSA = () => {
+    navigate('/company-sheets-dsa')
+  }
+
+  const handleCompanySheetsFrontend = () => {
+    navigate('/company-sheets-frontend')
   }
 
   const handleDownloadResources = () => {
@@ -312,31 +363,6 @@ const CandidateDashboard: React.FC = () => {
     <div className="min-h-screen bg-gray-50">
       <Header />
 
-      {/* Navigation Tabs */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center">
-            <div className="flex space-x-8">
-              <button className="py-4 px-1 border-b-2 border-primary-600 text-primary-600 font-medium">
-                Candidate Dashboard
-              </button>
-              <button className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium">
-                Mentor Dashboard
-              </button>
-              <button className="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium">
-                Admin Dashboard
-              </button>
-            </div>
-            <button
-              onClick={fetchSessions}
-              className="bg-gray-600 text-white px-4 py-2 rounded text-sm hover:bg-gray-700"
-            >
-              Refresh Sessions
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Welcome Banner */}
       <div className="bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -353,6 +379,60 @@ const CandidateDashboard: React.FC = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Subscription Info Banner */}
+        {subscription && subscription.plan && (
+          <div className={`mb-8 rounded-xl p-6 ${
+            subscription.isExpired 
+              ? 'bg-red-50 border-2 border-red-200' 
+              : subscription.remaining > 0 
+                ? 'bg-green-50 border-2 border-green-200' 
+                : 'bg-yellow-50 border-2 border-yellow-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                  subscription.isExpired 
+                    ? 'bg-red-100' 
+                    : subscription.remaining > 0 
+                      ? 'bg-green-100' 
+                      : 'bg-yellow-100'
+                }`}>
+                  <Trophy className={`w-6 h-6 ${
+                    subscription.isExpired 
+                      ? 'text-red-600' 
+                      : subscription.remaining > 0 
+                        ? 'text-green-600' 
+                        : 'text-yellow-600'
+                  }`} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">
+                    {subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1)} Plan
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {subscription.isExpired 
+                      ? 'Subscription Expired' 
+                      : `${subscription.remaining} of ${subscription.limit} interviews remaining`
+                    }
+                  </p>
+                  {subscription.expiresAt && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Expires: {new Date(subscription.expiresAt).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {subscription.remaining === 0 && !subscription.isExpired && (
+                <button 
+                  onClick={() => navigate('/')}
+                  className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
+                  Upgrade Plan
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="card">
@@ -530,7 +610,7 @@ const CandidateDashboard: React.FC = () => {
                     <button
                       onClick={async () => {
                         try {
-                          const response = await fetch('http://localhost:5000/api/sessions/test-create-candidate', {
+                          const response = await fetch(getApiUrl('api/sessions/test-create-candidate'), {
                             method: 'POST',
                             headers: {
                               'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -555,6 +635,81 @@ const CandidateDashboard: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Recent Feedback */}
+            {(() => {
+              const completedSessionsWithFeedback = sessions
+                .filter(s => s.status === 'completed' && s.feedback)
+                .sort((a, b) => {
+                  const dateA = new Date(a.feedback?.createdAt || 0).getTime()
+                  const dateB = new Date(b.feedback?.createdAt || 0).getTime()
+                  return dateB - dateA // Most recent first
+                })
+                .slice(0, 3) // Show last 3 feedbacks
+
+              return completedSessionsWithFeedback.length > 0 ? (
+                <div className="card">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Feedback</h2>
+                  <div className="space-y-4">
+                    {completedSessionsWithFeedback.map((session) => {
+                      const feedbackDate = new Date(session.feedback?.createdAt || '')
+                      const now = new Date()
+                      const daysDiff = Math.floor((now.getTime() - feedbackDate.getTime()) / (1000 * 60 * 60 * 24))
+                      const timeAgo = daysDiff === 0 ? 'Today' : daysDiff === 1 ? 'Yesterday' : `${daysDiff} days ago`
+
+                      // Calculate average score
+                      const avgScore = session.feedback ? 
+                        ((session.feedback.communication || 0) + (session.feedback.problemSolving || 0) + (session.feedback.codeQuality || 0)) / 3 : 0
+
+                      return (
+                        <div key={session._id} className="p-4 bg-gradient-to-r from-blue-50 to-primary-50 rounded-lg border border-blue-200">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <div className="flex items-center space-x-2 mb-1">
+                                {getSessionIcon(session.type)}
+                                <span className="font-semibold text-gray-900">{session.type} Session</span>
+                              </div>
+                              <p className="text-sm text-gray-600">{timeAgo}</p>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <Star className="w-5 h-5 text-yellow-500 fill-current" />
+                              <span className="text-lg font-bold text-gray-900">{avgScore.toFixed(1)}</span>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-3 mb-3">
+                            <div className="text-center">
+                              <p className="text-xs text-gray-600 mb-1">Communication</p>
+                              <p className="text-lg font-semibold text-primary-600">{session.feedback?.communication || 0}/10</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs text-gray-600 mb-1">Problem Solving</p>
+                              <p className="text-lg font-semibold text-green-600">{session.feedback?.problemSolving || 0}/10</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs text-gray-600 mb-1">Code Quality</p>
+                              <p className="text-lg font-semibold text-purple-600">{session.feedback?.codeQuality || 0}/10</p>
+                            </div>
+                          </div>
+                          {session.feedback?.domain && (
+                            <div className="mb-2">
+                              <p className="text-xs text-gray-600 mb-1">Strong in:</p>
+                              <span className="inline-block px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
+                                {session.feedback.domain}
+                              </span>
+                            </div>
+                          )}
+                          {session.feedback?.comments && (
+                            <div className="mt-2 pt-2 border-t border-blue-200">
+                              <p className="text-sm text-gray-700">{session.feedback.comments}</p>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : null
+            })()}
 
             {/* Upcoming Sessions */}
             <div className="card">
@@ -635,26 +790,6 @@ const CandidateDashboard: React.FC = () => {
               )}
             </div>
 
-            {/* Free Resources */}
-            <div className="card">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Free Resources</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {resources.map((resource, index) => (
-                  <div key={index} className="text-center p-4 bg-gray-50 rounded-lg">
-                    <div className="flex justify-center mb-2">{resource.icon}</div>
-                    <h3 className="font-medium text-gray-900 mb-1">{resource.title}</h3>
-                    <p className="text-sm text-gray-600 mb-3">{resource.description}</p>
-                    <a 
-                      href={resource.downloadUrl} 
-                      className="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center justify-center"
-                    >
-                      <Download className="w-4 h-4 mr-1" />
-                      Download PDF
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
 
           {/* Right Column */}
@@ -684,6 +819,68 @@ const CandidateDashboard: React.FC = () => {
                   <BarChart3 className="w-5 h-5 mr-2" />
                   View Progress
                 </button>
+                <button 
+                  onClick={() => navigate('/leaderboard')}
+                  className="w-full btn-secondary flex items-center justify-center"
+                >
+                  <Trophy className="w-5 h-5 mr-2" />
+                  View Leaderboard
+                </button>
+              </div>
+            </div>
+
+            {/* Free Resources - Moved below Quick Actions */}
+            <div className="card">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Free Resources</h2>
+              <div className="grid grid-cols-1 gap-4">
+                {resources.map((resource, index) => (
+                  <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0">{resource.icon}</div>
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900 mb-1">{resource.title}</h3>
+                        <p className="text-sm text-gray-600 mb-2">{resource.description}</p>
+                        <a 
+                          href={resource.downloadUrl} 
+                          className="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          Download PDF
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Paid Sections */}
+            <div className="card border-2 border-primary-200 bg-primary-50/50">
+              <div className="flex items-center mb-4">
+                <Star className="w-5 h-5 text-primary-600 mr-2" />
+                <h2 className="text-xl font-semibold text-gray-900">Paid Sections</h2>
+              </div>
+              <div className="space-y-3">
+                <button 
+                  onClick={handleCompanySheetsDSA}
+                  className="w-full bg-white hover:bg-primary-50 border border-primary-200 text-gray-900 px-4 py-3 rounded-lg flex items-center justify-between transition-colors"
+                >
+                  <div className="flex items-center">
+                    <BookOpen className="w-5 h-5 mr-3 text-primary-600" />
+                    <span className="font-medium">DSA Company Sheets</span>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                </button>
+                <button 
+                  onClick={handleCompanySheetsFrontend}
+                  className="w-full bg-white hover:bg-primary-50 border border-primary-200 text-gray-900 px-4 py-3 rounded-lg flex items-center justify-between transition-colors"
+                >
+                  <div className="flex items-center">
+                    <Code className="w-5 h-5 mr-3 text-primary-600" />
+                    <span className="font-medium">Frontend Company Sheets</span>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                </button>
               </div>
             </div>
           </div>
@@ -691,9 +888,11 @@ const CandidateDashboard: React.FC = () => {
       </div>
 
       {/* Floating Help Button */}
-      <button className="fixed bottom-6 right-6 w-14 h-14 bg-secondary-600 text-white rounded-full shadow-lg hover:bg-secondary-700 transition-colors duration-200 flex items-center justify-center">
+      <button className="fixed bottom-6 right-6 w-14 h-14 bg-secondary-600 text-white rounded-full shadow-lg hover:bg-secondary-700 transition-colors duration-200 flex items-center justify-center z-10">
         <HelpCircle className="w-6 h-6" />
       </button>
+      
+      <Footer />
     </div>
   )
 }

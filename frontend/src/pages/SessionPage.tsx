@@ -16,6 +16,7 @@ import {
   Paperclip,
   Smile
 } from 'lucide-react'
+import Footer from '../components/Footer'
 
 const SessionPage: React.FC = () => {
   const [isVideoOn, setIsVideoOn] = useState(true)
@@ -349,6 +350,7 @@ const SessionPage: React.FC = () => {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   )
 }

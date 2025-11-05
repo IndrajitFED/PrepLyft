@@ -11,14 +11,13 @@ export const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
-    console.log('API Request Interceptor - Token:', token)
-    console.log('API Request Interceptor - URL:', config.url)
+
     
     if (token && token !== 'undefined' && token !== 'null' && token.trim() !== '') {
       config.headers.Authorization = `Bearer ${token}`
-      console.log('API Request Interceptor - Authorization header set:', config.headers.Authorization)
+
     } else {
-      console.log('API Request Interceptor - No valid token found in localStorage')
+
       // Remove any existing Authorization header if no valid token
       delete config.headers.Authorization
     }
@@ -82,6 +81,12 @@ export const authAPI = {
   // Logout user
   logout: async () => {
     const response = await api.post('/auth/logout')
+    return response.data.data // Extract from nested data structure
+  },
+
+  // Google OAuth login
+  googleLogin: async (credential: string) => {
+    const response = await api.post('/auth/google', { credential })
     return response.data.data // Extract from nested data structure
   }
 }
@@ -228,5 +233,47 @@ export const notificationAPI = {
   markAllAsRead: async () => {
     const response = await api.put('/notifications/read-all')
     return response.data
+  }
+}
+
+// Subscription API functions
+export const subscriptionAPI = {
+  // Get user's subscription details
+  getSubscription: async () => {
+    const response = await api.get('/subscriptions/my')
+    return response.data.data
+  },
+
+  // Create subscription order
+  createOrder: async (plan: 'basic' | 'standard' | 'premium') => {
+    const response = await api.post('/subscriptions/create-order', { plan })
+    return response.data.data
+  },
+
+  // Verify subscription payment
+  verifyPayment: async (paymentData: {
+    razorpay_order_id: string
+    razorpay_payment_id: string
+    razorpay_signature: string
+  }) => {
+    const response = await api.post('/subscriptions/verify', paymentData)
+    return response.data.data
+  }
+}
+
+// Leaderboard API functions
+export const leaderboardAPI = {
+  // Get leaderboard
+  getLeaderboard: async (limit?: number) => {
+    const response = await api.get('/leaderboard', {
+      params: { limit }
+    })
+    return response.data.data.leaderboard
+  },
+
+  // Get current user's rank
+  getMyRank: async () => {
+    const response = await api.get('/leaderboard/my-rank')
+    return response.data.data
   }
 } 

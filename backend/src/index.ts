@@ -7,8 +7,13 @@ import rateLimit from 'express-rate-limit'
 import dotenv from 'dotenv'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
+import path from 'path'
 
-// Import routes
+// Load environment variables FIRST before any other imports
+// Explicitly load from backend directory to ensure .env is found
+dotenv.config({ path: path.resolve(__dirname, '../.env') })
+
+// Import routes (after dotenv is loaded)
 import authRoutes from './routes/auth'
 import userRoutes from './routes/users'
 import sessionRoutes from './routes/sessions'
@@ -20,13 +25,12 @@ import pricingRoutes from './routes/pricing'
 import mentorAssignmentRoutes from './routes/mentorAssignment'
 import mentorCalendarRoutes from './routes/mentorCalendar'
 import smartBookingRoutes from './routes/smartBooking'
+import subscriptionRoutes from './routes/subscriptions'
+import leaderboardRoutes from './routes/leaderboard'
 
 // Import middleware
 import { errorHandler, notFound } from './middleware/errorHandler'
 import { connectDB } from './config/database'
-
-// Load environment variables
-dotenv.config()
 
 const app = express()
 const server = createServer(app)
@@ -42,7 +46,7 @@ connectDB()
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 1000 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
   message: {
     success: false,
@@ -53,8 +57,23 @@ const limiter = rateLimit({
 // Middleware
 app.use(helmet())
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
-  credentials: true
+  origin: [
+    'http://mockinterview.shop',
+    'https://mockinterview.shop',
+    'http://www.mockinterview.shop',
+    'https://www.mockinterview.shop',
+    'http://165.22.218.43',
+    'https://165.22.218.43',
+    'http://165.22.218.43:4173',
+    'https://165.22.218.43:4173',
+    'http://localhost:3000',
+    'http://localhost:4173',
+    'http://localhost:4174'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  optionsSuccessStatus: 200
 }))
 app.use(compression())
 app.use(limiter)
@@ -91,6 +110,8 @@ app.use('/api/pricing', pricingRoutes)
 app.use('/api/mentor-assignment', mentorAssignmentRoutes)
 app.use('/api/mentor-calendar', mentorCalendarRoutes)
 app.use('/api/smart-booking', smartBookingRoutes)
+app.use('/api/subscriptions', subscriptionRoutes)
+app.use('/api/leaderboard', leaderboardRoutes)
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -11,7 +11,7 @@ export const SESSION_PRICING: PricingConfig = {
   'DSA': {
     id: 'DSA',
     name: 'Data Structures & Algorithms',
-    price: 999,
+    price: 499,
     description: 'Comprehensive DSA interview preparation'
   },
   'Data Science': {

@@ -1,16 +1,19 @@
 import express from 'express'
+import mongoose from 'mongoose'
 import { body, validationResult } from 'express-validator'
 import { Session } from '../models/Session'
 import { User } from '../models/User'
 import { auth, requireRole, AuthRequest } from '../middleware/auth'
 import { asyncHandler } from '../middleware/errorHandler'
 import { sendNotification } from '../services/notifications'
-import { GoogleCalendarService } from '../services/googleCalendar'
+import { MentorCalendarService } from '../services/mentorCalendar'
+import { GoogleMeetService } from '../services/googleMeetService'
 import { checkSessionAvailability } from '../utils/availability'
 import { ResponseHandler } from '../utils/response'
+import { canBookInterview, incrementInterviewUsage, getUserSubscription } from '../utils/subscription'
 
 const router = express.Router()
-const googleCalendar = new GoogleCalendarService()
+const googleMeetService = new GoogleMeetService()
 
 // @route   GET /api/sessions/mentor
 // @desc    Get mentor's assigned sessions
@@ -59,14 +62,34 @@ router.post('/book', [
   const { mentorId, date, time, duration, type, notes } = req.body
   const candidateId = req.user!.userId
 
-  // Check if candidate has enough credits
+  // Check if candidate exists
   const candidate = await User.findById(candidateId)
   if (!candidate) {
     return ResponseHandler.notFound(res, 'Candidate not found')
   }
 
-  if (candidate.credits < 1) {
-    return ResponseHandler.error(res, 'Insufficient credits. Please purchase more credits to book a session.', 400)
+  // Check subscription limits (pass interview type)
+  const subscriptionCheck = await canBookInterview(candidateId, type)
+  if (!subscriptionCheck.allowed) {
+    return ResponseHandler.error(res, subscriptionCheck.reason || 'Cannot book interview', 400)
+  }
+
+  // Determine if this interview is from plan or separate payment
+  // If user has subscription and has quota remaining, use from plan
+  let usedFromPlan = false
+  if (candidate.subscriptionPlan) {
+    const dsaLimit = candidate.dsaInterviewsLimit || 0
+    const dsaUsed = candidate.dsaInterviewsUsed || 0
+    const randomLimit = candidate.randomInterviewsLimit || 0
+    const randomUsed = candidate.randomInterviewsUsed || 0
+    
+    if (type === 'DSA' && dsaLimit > dsaUsed) {
+      usedFromPlan = true
+    } else if (['Data Science', 'Analytics', 'System Design', 'Behavioral'].includes(type)) {
+      if (randomLimit > randomUsed) {
+        usedFromPlan = true
+      }
+    }
   }
 
   // Check if mentor exists
@@ -86,7 +109,7 @@ router.post('/book', [
     return ResponseHandler.conflict(res, 'This time slot is already booked. Please choose another time.')
   }
 
-  // Create session
+  // Create session (pending; do NOT create calendar event here)
   const session = new Session({
     candidate: candidateId,
     mentor: mentorId,
@@ -101,33 +124,8 @@ router.post('/book', [
 
   await session.save()
 
-      // Create Google Calendar event
-    try {
-      const calendarEvent = await googleCalendar.createCalendarEvent({
-        id: session._id?.toString() || '',
-        date,
-        time,
-        duration,
-        mentorName: mentor.name,
-        candidateName: candidate.name,
-        mentorEmail: mentor.email,
-        candidateEmail: candidate.email
-      })
-
-    // Update session with meeting details
-    session.meetingLink = calendarEvent.hangoutLink;
-    session.googleEventId = calendarEvent.id;
-    session.status = 'scheduled';
-    await session.save();
-
-  } catch (error) {
-    console.error('Failed to create Google Calendar event:', error);
-    // Continue without Google Calendar integration
-  }
-
-  // Deduct credits from candidate
-  candidate.credits -= 1
-  await candidate.save()
+  // Increment interview usage (with type and whether used from plan)
+  await incrementInterviewUsage(candidateId, type, usedFromPlan)
 
   // Send notifications
   await sendNotification(mentorId, 'session_booked', {
@@ -137,7 +135,8 @@ router.post('/book', [
     scheduledDate: session.scheduledDate || (session.date && session.time ? new Date(`${session.date}T${session.time}`) : new Date())
   })
 
-  await sendNotification(candidateId, 'session_confirmed', {
+  // Notify candidate that session is pending mentor approval
+  await sendNotification(candidateId, 'session_booked', {
     sessionId: session._id as string,
     mentorName: mentor.name,
     type,
@@ -262,15 +261,47 @@ router.put('/:id/join', auth, asyncHandler(async (req: AuthRequest, res: express
     })
   }
 
-  // Generate meeting link (in production, integrate with Google Meet/Zoom APIs)
+  // Ensure meeting link exists; try Google Meet service first, then Google Calendar, then fallback
   if (!session.meetingLink) {
-    const meetingId = `meet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    session.meetingLink = `https://meet.google.com/${meetingId}`
-    session.meetingId = meetingId
+    let meetingLink: string | null = null
+    let googleEventId: string | null = null
+
+    try {
+      // Attempt Google Meet direct creation (service account or OAuth configured)
+      const meetRoom = await googleMeetService.createGoogleMeetRoom({
+        id: session._id?.toString() || '',
+        date: session.date || sessionTime.toISOString().slice(0,10),
+        time: session.time || sessionTime.toTimeString().slice(0,5),
+        duration: session.duration,
+        mentorName: (session.mentor as any)?.name || 'Mentor',
+        candidateName: (session.candidate as any)?.name || 'Candidate',
+        mentorEmail: (session.mentor as any)?.email || '',
+        candidateEmail: (session.candidate as any)?.email || '',
+        type: session.type,
+        mentorId: (session.mentor as any)?._id?.toString?.() || session.mentor?.toString() || undefined
+      })
+      if (meetRoom) {
+        meetingLink = meetRoom.meetingLink
+        googleEventId = meetRoom.eventId
+      }
+    } catch (err) {
+      console.error('Google Meet direct creation failed, using generated link:', err)
+    }
+
+    // Fallback to generated link if Meet service unavailable
+    if (!meetingLink) {
+      const meetingId = `meet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      meetingLink = `https://meet.google.com/${meetingId}`
+      session.meetingId = meetingId
+    }
+
+    // Persist
+    session.meetingLink = meetingLink
+    if (googleEventId) session.googleEventId = googleEventId
     session.status = 'in-progress'
     await session.save()
 
-    // Send notifications
+    // Notify both parties
     await sendNotification(session.candidate.toString(), 'session_started', {
       sessionId: session._id as string,
       meetingLink: session.meetingLink,
@@ -388,11 +419,11 @@ router.put('/:id/reschedule', [
 router.put('/:id/complete', [
   auth,
   requireRole(['mentor']),
-  body('feedback.technical').isInt({ min: 1, max: 10 }).withMessage('Technical rating must be between 1-10'),
   body('feedback.communication').isInt({ min: 1, max: 10 }).withMessage('Communication rating must be between 1-10'),
   body('feedback.problemSolving').isInt({ min: 1, max: 10 }).withMessage('Problem solving rating must be between 1-10'),
-  body('feedback.overall').isInt({ min: 1, max: 10 }).withMessage('Overall rating must be between 1-10'),
-  body('feedback.comments').notEmpty().withMessage('Feedback comments are required')
+  body('feedback.codeQuality').isInt({ min: 1, max: 10 }).withMessage('Code quality rating must be between 1-10'),
+  body('feedback.domain').notEmpty().withMessage('Domain is required'),
+  body('feedback.comments').optional().isString().withMessage('Comments must be a string')
 ], asyncHandler(async (req: AuthRequest, res: express.Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -414,39 +445,48 @@ router.put('/:id/complete', [
   }
 
   // Check if user is the mentor for this session
-  if (!session.mentor || session.mentor.toString() !== req.user!.userId) {
+  const mentorId = session.mentor?.toString() || session.assignedMentor?.toString()
+  if (!mentorId || mentorId !== req.user!.userId) {
     return res.status(403).json({
       success: false,
       message: 'Access denied. Only the assigned mentor can complete this session.'
     })
   }
 
-  if (session.status !== 'in-progress') {
+  if (session.status !== 'in-progress' && session.status !== 'scheduled') {
     return res.status(400).json({
       success: false,
-      message: 'Only in-progress sessions can be completed'
+      message: 'Only in-progress or scheduled sessions can be completed'
     })
   }
 
+  // Calculate total score for this feedback
+  const sessionScore = feedback.communication + feedback.problemSolving + feedback.codeQuality
+
   // Add feedback
   session.feedback = {
-    ...feedback,
-    mentor: req.user!.userId,
+    communication: feedback.communication,
+    problemSolving: feedback.problemSolving,
+    codeQuality: feedback.codeQuality,
+    domain: feedback.domain,
+    comments: feedback.comments || '',
+    mentor: new mongoose.Types.ObjectId(req.user!.userId),
     createdAt: new Date()
   }
   session.status = 'completed'
   await session.save()
 
-  // Update user statistics
+  // Update candidate statistics and totalScore
   await User.findByIdAndUpdate(session.candidate, {
     $inc: { 
       completedSessions: 1,
-      totalSessions: 1
+      totalSessions: 1,
+      totalScore: sessionScore
     }
   })
 
-  if (session.mentor) {
-    await User.findByIdAndUpdate(session.mentor, {
+  if (session.mentor || session.assignedMentor) {
+    await User.findByIdAndUpdate(session.mentor || session.assignedMentor, {
       $inc: { totalSessions: 1 }
     })
   }
@@ -611,7 +651,16 @@ router.put('/:id/approve', [
       return ResponseHandler.notFound(res, 'Session not found')
     }
 
-    if (session.mentor?.toString() !== mentorId) {
+    // Check both mentor and assignedMentor fields (smart booking uses assignedMentor)
+    const sessionMentorId = session.mentor?.toString() || session.assignedMentor?.toString()
+    
+    if (!sessionMentorId || sessionMentorId !== mentorId) {
+      console.log('❌ Mentor mismatch:', {
+        sessionMentor: session.mentor?.toString(),
+        sessionAssignedMentor: session.assignedMentor?.toString(),
+        loggedInMentorId: mentorId,
+        sessionId: session._id
+      })
       return ResponseHandler.error(res, 'You can only approve your own sessions', 403)
     }
 
@@ -627,6 +676,11 @@ router.put('/:id/approve', [
     session.scheduledDate = scheduledDate
     session.date = date
     session.time = time
+    
+    // Ensure mentor field is set (in case session only had assignedMentor from smart booking)
+    if (!session.mentor && session.assignedMentor) {
+      session.mentor = session.assignedMentor
+    }
 
     await session.save()
     await session.populate([
@@ -634,32 +688,26 @@ router.put('/:id/approve', [
       { path: 'mentor', select: 'name email avatar company position' }
     ])
 
-    // Create Google Calendar event with Google Meet
+    // Create Google Calendar event with Google Meet using mentor's OAuth
     let meetingLink = null
     try {
-      console.log('📅 Creating Google Calendar event for approved session...')
-      const calendarEvent = await googleCalendar.createCalendarEvent({
-        id: session._id?.toString() || '',
-        date: date,
-        time: time,
-        duration: session.duration,
-        mentorName: (session.mentor as any)?.name || 'Mentor',
-        candidateName: (session.candidate as any)?.name || 'Candidate',
-        mentorEmail: (session.mentor as any)?.email || '',
-        candidateEmail: (session.candidate as any)?.email || '',
-        type: session.type
-      })
+      console.log('📅 Creating Google Calendar event (mentor OAuth) for approved session...')
+      const event = await MentorCalendarService.createSessionEvent(mentorId, (session._id as any).toString())
 
-      meetingLink = calendarEvent.hangoutLink || calendarEvent.conferenceData?.entryPoints?.[0]?.uri
+      if (!event) {
+        throw new Error('Mentor calendar event creation failed')
+      }
+
+      meetingLink = (event as any)?.conferenceData?.entryPoints?.[0]?.uri || (event as any)?.hangoutLink || null
       
       // Update session with meeting details
-      session.meetingLink = meetingLink
-      session.googleEventId = calendarEvent.id
+      session.meetingLink = meetingLink || session.meetingLink
+      session.googleEventId = (event as any)?.id || session.googleEventId
       await session.save()
 
-      console.log('✅ Google Meet link created for approved session:', meetingLink)
+      console.log('✅ Google Meet invite sent from mentor calendar:', meetingLink)
     } catch (error) {
-      console.error('❌ Failed to create Google Calendar event for approved session:', error)
+      console.error('❌ Failed to create Google event from mentor calendar:', error)
       // Continue without Google Calendar integration
     }
 
@@ -667,6 +715,15 @@ router.put('/:id/approve', [
     await sendNotification(session.candidate.toString(), 'session_approved', {
       sessionId: session._id as string,
       mentorName: (session.mentor as any)?.name || 'Your mentor',
+      type: session.type,
+      scheduledDate: session.scheduledDate,
+      meetingLink: meetingLink
+    })
+
+    // Notify mentor with the final Meet link as well
+    await sendNotification(session.mentor!.toString(), 'session_approved', {
+      sessionId: session._id as string,
+      mentorName: (session.mentor as any)?.name || 'You',
       type: session.type,
       scheduledDate: session.scheduledDate,
       meetingLink: meetingLink
@@ -750,7 +807,10 @@ router.put('/:id/cancel', [
       return ResponseHandler.notFound(res, 'Session not found')
     }
 
-    if (session.mentor?.toString() !== mentorId) {
+    // Check both mentor and assignedMentor fields (smart booking uses assignedMentor)
+    const sessionMentorId = session.mentor?.toString() || session.assignedMentor?.toString()
+    
+    if (!sessionMentorId || sessionMentorId !== mentorId) {
       return ResponseHandler.error(res, 'You can only cancel your own sessions', 403)
     }
 

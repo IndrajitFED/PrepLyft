@@ -15,6 +15,7 @@ import {
   FileText,
   Settings
 } from 'lucide-react'
+import Footer from '../components/Footer'
 
 const AdminDashboard: React.FC = () => {
   return (
@@ -430,9 +431,10 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Floating Help Button */}
-      <button className="fixed bottom-8 right-8 w-16 h-16 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors flex items-center justify-center">
+      <button className="fixed bottom-8 right-8 w-16 h-16 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors flex items-center justify-center z-10">
         <span className="text-white font-bold text-lg">?</span>
       </button>
+      <Footer />
     </div>
   )
 }

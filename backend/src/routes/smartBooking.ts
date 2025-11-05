@@ -4,50 +4,14 @@ import { Session } from '../models/Session'
 import { User } from '../models/User'
 import { Payment } from '../models/Payment'
 import { ResponseHandler } from '../utils/response'
-import { GoogleCalendarService } from '../services/googleCalendar'
-import { GoogleMeetService } from '../services/googleMeetService'
 import { sendNotification } from '../services/notifications'
+import { canBookInterview, incrementInterviewUsage } from '../utils/subscription'
 
 const router = express.Router()
-const googleCalendar = new GoogleCalendarService()
-const googleMeetService = new GoogleMeetService()
 
 // Test endpoint
 router.get('/test', (req, res) => {
   res.json({ success: true, message: 'Smart booking route is working!' })
-})
-
-// Test Google Meet service endpoint
-router.get('/test-google-meet', auth, async (req: AuthRequest, res) => {
-  try {
-    const testData = {
-      id: 'test-' + Date.now(),
-      date: '2025-09-16',
-      time: '10:00',
-      duration: 60,
-      mentorName: 'Test Mentor',
-      candidateName: 'Test Candidate',
-      mentorEmail: 'mentor@example.com',
-      candidateEmail: 'candidate@example.com',
-      type: 'DSA'
-    }
-
-    const result = await googleMeetService.createGoogleMeetRoom(testData)
-    
-    if (result) {
-      return ResponseHandler.success(res, {
-        meetingLink: result.meetingLink,
-        eventId: result.eventId,
-        joinUrl: result.joinUrl,
-        testData: testData
-      }, 'Google Meet room created successfully!')
-    } else {
-      return ResponseHandler.error(res, 'Google Meet service not configured or authentication failed')
-    }
-  } catch (error) {
-    console.error('Google Meet test error:', error)
-    return ResponseHandler.error(res, `Google Meet test failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-  }
 })
 
 // Get available slots for a field and date
@@ -165,6 +129,35 @@ router.post('/book-smart', auth, async (req: AuthRequest, res) => {
       return ResponseHandler.unauthorized(res, 'User not authenticated')
     }
 
+    // Check subscription limits (pass interview type)
+    const subscriptionCheck = await canBookInterview(candidateId, field)
+    if (!subscriptionCheck.allowed) {
+      return ResponseHandler.error(res, subscriptionCheck.reason || 'Cannot book interview', 400)
+    }
+
+    // Get candidate to check quota
+    const candidate = await User.findById(candidateId)
+    if (!candidate) {
+      return ResponseHandler.error(res, 'Candidate not found', 404)
+    }
+
+    // Determine if this interview is from plan or separate payment
+    let usedFromPlan = false
+    if (candidate.subscriptionPlan) {
+      const dsaLimit = candidate.dsaInterviewsLimit || 0
+      const dsaUsed = candidate.dsaInterviewsUsed || 0
+      const randomLimit = candidate.randomInterviewsLimit || 0
+      const randomUsed = candidate.randomInterviewsUsed || 0
+      
+      if (field === 'DSA' && dsaLimit > dsaUsed) {
+        usedFromPlan = true
+      } else if (['Data Science', 'Analytics', 'System Design', 'Behavioral'].includes(field)) {
+        if (randomLimit > randomUsed) {
+          usedFromPlan = true
+        }
+      }
+    }
+
     // Find the best available mentor for this time slot
     const assignedMentor = await findBestMentorForSlot(field, scheduledDate, time)
     
@@ -179,17 +172,17 @@ router.post('/book-smart', auth, async (req: AuthRequest, res) => {
       status: 'captured'
     }).sort({ createdAt: -1 }) // Get the most recent payment
 
-    // Create session
+    // Create session (pending - wait for mentor approval)
     const session = new Session({
       candidate: candidateId,
       assignedMentor: assignedMentor._id,
       type: field,
-      status: 'scheduled',
+      status: 'pending',
       scheduledDate: new Date(`${scheduledDate}T${time}`),
       duration: duration,
       price: price,
       autoAssigned: true,
-      bookingStatus: 'confirmed',
+      bookingStatus: 'assigned', // Valid enum: pending_assignment | assigned | confirmed | completed
       // Mark as paid if there's a completed payment
       isPaid: !!completedPayment,
       paymentId: completedPayment?.paymentId,
@@ -197,83 +190,10 @@ router.post('/book-smart', auth, async (req: AuthRequest, res) => {
       paymentStatus: completedPayment ? 'completed' : 'pending'
     })
 
-    console.log('Creating session with candidateId:', candidateId)
-    console.log('Session data:', {
-      candidate: candidateId,
-      assignedMentor: assignedMentor._id,
-      type: field,
-      status: 'scheduled',
-      scheduledDate: new Date(`${scheduledDate}T${time}`),
-      duration: duration,
-      price: price
-    })
-
     await session.save()
 
-    // Get candidate details for Google Meet creation
-    const candidate = await User.findById(candidateId)
-    if (!candidate) {
-      return ResponseHandler.error(res, 'Candidate not found')
-    }
-
-    // Create Google Meet room automatically
-    let meetingLink = null
-    let googleEventId = null
-    
-    try {
-      console.log('🚀 Creating Google Meet room automatically...')
-      const meetRoom = await googleMeetService.createGoogleMeetRoom({
-        id: session._id?.toString() || '',
-        date: scheduledDate,
-        time: time,
-        duration: duration,
-        mentorName: assignedMentor.name,
-        candidateName: candidate.name,
-        mentorEmail: assignedMentor.email,
-        candidateEmail: candidate.email,
-        type: field
-      })
-
-      if (meetRoom) {
-        meetingLink = meetRoom.meetingLink
-        googleEventId = meetRoom.eventId
-
-        // Update session with meeting details
-        session.meetingLink = meetingLink
-        session.googleEventId = googleEventId
-        await session.save()
-
-        console.log('✅ Google Meet room created automatically:', meetingLink)
-      } else {
-        console.log('⚠️  Google Meet service not available, trying fallback...')
-        
-        // Fallback to Google Calendar service
-        const calendarEvent = await googleCalendar.createCalendarEvent({
-          id: session._id?.toString() || '',
-          date: scheduledDate,
-          time: time,
-          duration: duration,
-          mentorName: assignedMentor.name,
-          candidateName: candidate.name,
-          mentorEmail: assignedMentor.email,
-          candidateEmail: candidate.email,
-          type: field
-        })
-
-        meetingLink = calendarEvent.hangoutLink || calendarEvent.conferenceData?.entryPoints?.[0]?.uri
-        googleEventId = calendarEvent.id
-
-        // Update session with meeting details
-        session.meetingLink = meetingLink
-        session.googleEventId = googleEventId
-        await session.save()
-
-        console.log('✅ Fallback Google Meet link created:', meetingLink)
-      }
-    } catch (error) {
-      console.error('❌ Failed to create Google Meet room:', error)
-      // Continue without Google Meet integration
-    }
+    // Increment interview usage (with type and whether used from plan)
+    await incrementInterviewUsage(candidateId, field, usedFromPlan)
 
     // Send notifications to mentor and candidate
     await sendNotification((assignedMentor._id as any).toString(), 'session_booked', {
@@ -283,12 +203,12 @@ router.post('/book-smart', auth, async (req: AuthRequest, res) => {
       scheduledDate: session.scheduledDate
     })
 
-    await sendNotification(candidateId, 'session_confirmed', {
+    // Notify candidate that session is pending mentor approval
+    await sendNotification(candidateId, 'session_booked', {
       sessionId: session._id as string,
       mentorName: assignedMentor.name,
       type: field,
-      scheduledDate: session.scheduledDate,
-      meetingLink: meetingLink
+      scheduledDate: session.scheduledDate
     })
 
     return ResponseHandler.success(res, {
@@ -300,9 +220,9 @@ router.post('/book-smart', auth, async (req: AuthRequest, res) => {
         scheduledDate: session.scheduledDate,
         time: time,
         field: field,
-        meetingLink: meetingLink
+        status: 'pending'
       }
-    }, 'Session booked successfully with Google Meet link')
+    }, 'Session booked successfully. Waiting for mentor approval.')
   } catch (error) {
     console.error('Error booking session:', error)
     return ResponseHandler.error(res, 'Failed to book session')
@@ -387,7 +307,7 @@ async function findBestMentorForSlot(field: string, scheduledDate: string, time:
         mentor,
         currentLoad: existingSessions.length,
         maxLoad: mentorAvailability.maxSessionsPerDay || 8,
-        rating: mentor.averageRating || 4.5
+        rating: (mentor as any).averageRating || 4.5
       })
     }
   }

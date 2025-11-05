@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
+import { MentorCalendarService } from './mentorCalendar';
 
 export interface GoogleMeetEvent {
   summary: string;
@@ -34,72 +35,39 @@ export interface GoogleMeetEvent {
 }
 
 export class GoogleMeetService {
-  private oauth2Client: OAuth2Client;
+  private oauth2Client: OAuth2Client | null = null;
   private calendar: any;
   private isAuthenticated: boolean = false;
 
+  private initializeOAuth2Client() {
+    if (!this.oauth2Client) {
+      if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+        throw new Error('GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in environment variables')
+      }
+      
+      this.oauth2Client = new OAuth2Client(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/mentor-calendar/callback'
+      );
+      
+      this.calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+      this.setupAuth();
+    }
+    return this.oauth2Client;
+  }
+
   constructor() {
-    this.oauth2Client = new OAuth2Client(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI
-    );
-    
-    this.calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
-    this.setupAuth();
+    // Lazy initialization - don't initialize OAuth2Client until actually needed
+    // This allows dotenv to load before validation
   }
 
   private async setupAuth() {
-    try {
-      // Method 1: Service Account (Best for server-to-server)
-      if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-        const auth = new google.auth.GoogleAuth({
-          credentials: serviceAccount,
-          scopes: [
-            'https://www.googleapis.com/auth/calendar',
-            'https://www.googleapis.com/auth/calendar.events'
-          ]
-        });
-        
-        this.calendar = google.calendar({ version: 'v3', auth });
-        this.isAuthenticated = true;
-        console.log('✅ Google Meet Service authenticated with service account');
-        return;
-      }
-
-      // Method 2: OAuth2 with Refresh Token
-      if (process.env.GOOGLE_REFRESH_TOKEN && process.env.GOOGLE_ACCESS_TOKEN) {
-        this.oauth2Client.setCredentials({
-          refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-          access_token: process.env.GOOGLE_ACCESS_TOKEN
-        });
-        this.isAuthenticated = true;
-        console.log('✅ Google Meet Service authenticated with OAuth2 tokens');
-        return;
-      }
-
-      // Method 3: Application Default Credentials (for Google Cloud)
-      if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-        const auth = new google.auth.GoogleAuth({
-          scopes: [
-            'https://www.googleapis.com/auth/calendar',
-            'https://www.googleapis.com/auth/calendar.events'
-          ]
-        });
-        
-        this.calendar = google.calendar({ version: 'v3', auth });
-        this.isAuthenticated = true;
-        console.log('✅ Google Meet Service authenticated with application default credentials');
-        return;
-      }
-
-      console.log('⚠️  Google Meet Service authentication not configured');
-      this.isAuthenticated = false;
-    } catch (error) {
-      console.error('❌ Failed to setup Google Meet Service authentication:', error);
-      this.isAuthenticated = false;
-    }
+    // No global auth setup - this service uses mentor OAuth tokens passed via mentorId parameter
+    // All event creation should use MentorCalendarService.createSessionEvent() which uses mentor OAuth
+    // This service is only used as a fallback in join route and requires mentorId to be provided
+    this.isAuthenticated = false;
+    console.log('ℹ️  GoogleMeetService: No global auth. Requires mentorId parameter for mentor OAuth.');
   }
 
   /**
@@ -115,15 +83,31 @@ export class GoogleMeetService {
     mentorEmail: string;
     candidateEmail: string;
     type: string;
+    mentorId?: string; // optional: use per-mentor OAuth tokens if provided
   }): Promise<{
     meetingLink: string;
     eventId: string;
     joinUrl: string;
   } | null> {
-    
-    if (!this.isAuthenticated) {
-      console.log('⚠️  Google Meet Service not authenticated. Cannot create automatic meeting room.');
-      return null;
+    // Prefer per-mentor OAuth tokens when mentorId is provided
+    if (sessionData.mentorId) {
+      try {
+        const oauth2Client = await MentorCalendarService.setupOAuth2Client(sessionData.mentorId);
+        this.calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+        try {
+          // Try to populate access token if only refresh token is present
+          if (typeof (oauth2Client as any).getAccessToken === 'function') {
+            await (oauth2Client as any).getAccessToken().catch(() => null)
+          }
+        } catch {}
+      } catch (e) {
+        console.error('❌ Failed to set up mentor OAuth2 client, will fallback to global auth:', e);
+      }
+    }
+
+    // Fallback to global OAuth2Client if mentor OAuth not available
+    if (!this.calendar) {
+      this.initializeOAuth2Client(); // This will initialize this.calendar
     }
 
     try {
@@ -191,10 +175,39 @@ export class GoogleMeetService {
         attendees: event.attendees.length
       });
 
+      // Guard: ensure we have valid mentor OAuth credentials before inserting
+      try {
+        const authAny = (this.calendar as any)?._options?.auth as any;
+        // Attempt to ensure access token is populated
+        if (authAny && typeof authAny.getAccessToken === 'function') {
+          await authAny.getAccessToken().catch(() => null)
+        }
+
+        const creds = authAny?.credentials;
+        const hasAccess = !!creds?.access_token;
+        const hasRefresh = !!creds?.refresh_token;
+        console.log('🔐 Auth check:', {
+          client: authAny?.constructor?.name,
+          hasAccess,
+          hasRefresh,
+          usedMentorId: !!sessionData.mentorId
+        })
+
+        // Require mentor OAuth credentials (access token or refresh token)
+        if (!hasAccess && !hasRefresh) {
+          console.log('⚠️  No valid mentor OAuth credentials available. Mentor must connect calendar first.');
+          return null;
+        }
+      } catch (guardErr) {
+        console.log('⚠️  Unable to verify mentor OAuth credentials. Skipping Meet creation.', guardErr);
+        return null;
+      }
+
       const response = await this.calendar.events.insert({
         calendarId: 'primary',
         requestBody: event,
-        conferenceDataVersion: 1
+        conferenceDataVersion: 1,
+        sendUpdates: 'all'
       });
 
       const createdEvent = response.data;
@@ -272,12 +285,13 @@ export class GoogleMeetService {
    * Get OAuth2 authorization URL for manual setup
    */
   getAuthUrl(): string {
+    const oauth2Client = this.initializeOAuth2Client();
     const scopes = [
       'https://www.googleapis.com/auth/calendar',
       'https://www.googleapis.com/auth/calendar.events'
     ];
 
-    return this.oauth2Client.generateAuthUrl({
+    return oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: scopes,
       prompt: 'consent'
@@ -291,7 +305,8 @@ export class GoogleMeetService {
     access_token: string;
     refresh_token: string;
   }> {
-    const { tokens } = await this.oauth2Client.getToken(code);
+    const oauth2Client = this.initializeOAuth2Client();
+    const { tokens } = await oauth2Client.getToken(code);
     return {
       access_token: tokens.access_token || '',
       refresh_token: tokens.refresh_token || ''

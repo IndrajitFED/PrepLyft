@@ -1,4 +1,5 @@
 import { google } from 'googleapis'
+import { OAuth2Client } from 'google-auth-library'
 import { User } from '../models/User'
 import { Session } from '../models/Session'
 
@@ -29,22 +30,37 @@ export interface CalendarEvent {
 }
 
 export class MentorCalendarService {
-  private static oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/mentor-calendar/callback'
-  )
+  private static oauth2Client: OAuth2Client | null = null
+
+  private static getOAuth2Client(): OAuth2Client {
+    if (!MentorCalendarService.oauth2Client) {
+      if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+        throw new Error('GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in environment variables')
+      }
+      
+      MentorCalendarService.oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/mentor-calendar/callback'
+      )
+    }
+    return MentorCalendarService.oauth2Client
+  }
 
   /**
    * Get mentor's Google Calendar credentials
    */
   static async getMentorCredentials(mentorId: string) {
     try {
-      const mentor = await User.findById(mentorId).select('+googleCalendarCredentials')
+      const mentor = await User.findById(mentorId).select(
+        '+googleCalendarCredentials.accessToken +googleCalendarCredentials.refreshToken +googleCalendarCredentials.isConnected +googleCalendarCredentials.calendarId'
+      )
       
-      if (!mentor || !mentor.googleCalendarCredentials?.isConnected) {
-        return null
-      }
+      if (!mentor || !mentor.googleCalendarCredentials) return null
+
+      const creds: any = mentor.googleCalendarCredentials
+      const treatedConnected = !!creds.isConnected || !!creds.refreshToken
+      if (!treatedConnected) return null
 
       return mentor.googleCalendarCredentials
     } catch (error) {
@@ -63,12 +79,17 @@ export class MentorCalendarService {
       throw new Error('Mentor calendar not connected')
     }
 
-    this.oauth2Client.setCredentials({
-      access_token: credentials.accessToken,
-      refresh_token: credentials.refreshToken
+    const hasAccess = !!credentials.accessToken
+    const hasRefresh = !!credentials.refreshToken
+    console.log('🔑 Mentor OAuth tokens present:', { hasAccess, hasRefresh })
+
+    const oauth2Client = this.getOAuth2Client()
+    oauth2Client.setCredentials({
+      access_token: credentials.accessToken || undefined,
+      refresh_token: credentials.refreshToken || undefined
     })
 
-    return this.oauth2Client
+    return oauth2Client
   }
 
   /**
@@ -139,7 +160,8 @@ export class MentorCalendarService {
       const response = await calendar.events.insert({
         calendarId: 'primary',
         requestBody: event,
-        conferenceDataVersion: 1
+        conferenceDataVersion: 1,
+        sendUpdates: 'all'
       })
 
       // Update session with Google Calendar event ID
@@ -298,10 +320,13 @@ Please join the session on time and ensure you have a stable internet connection
       'https://www.googleapis.com/auth/calendar.events'
     ]
 
-    return this.oauth2Client.generateAuthUrl({
+    const oauth2Client = this.getOAuth2Client()
+    return oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: scopes,
-      state: mentorId // Pass mentor ID in state for callback
+      state: mentorId, // Pass mentor ID in state for callback
+      prompt: 'consent',
+      include_granted_scopes: true as any
     })
   }
 
@@ -310,15 +335,34 @@ Please join the session on time and ensure you have a stable internet connection
    */
   static async handleCallback(code: string, mentorId: string): Promise<boolean> {
     try {
-      const { tokens } = await this.oauth2Client.getToken(code)
-      
+      const oauth2Client = this.getOAuth2Client()
+      const { tokens } = await oauth2Client.getToken(code)
+      const hasAccess = !!tokens.access_token
+      const hasRefresh = !!tokens.refresh_token
+      console.log('🔄 OAuth callback tokens:', { hasAccess, hasRefresh })
+
+      const existing = await User.findById(mentorId).select(
+        '+googleCalendarCredentials.accessToken +googleCalendarCredentials.refreshToken +googleCalendarCredentials.isConnected'
+      ) as any
+
+      const existingAccess = existing?.googleCalendarCredentials?.accessToken
+      const existingRefresh = existing?.googleCalendarCredentials?.refreshToken
+
+      const accessToSave = tokens.access_token || existingAccess || ''
+      const refreshToSave = tokens.refresh_token || existingRefresh || ''
+      const connected = !!refreshToSave
+
+      if (!connected) {
+        console.warn('⚠️  No refresh token available after OAuth callback. User may need to re-consent.')
+      }
+
       await User.findByIdAndUpdate(mentorId, {
-        'googleCalendarCredentials.accessToken': tokens.access_token,
-        'googleCalendarCredentials.refreshToken': tokens.refresh_token,
-        'googleCalendarCredentials.isConnected': true
+        'googleCalendarCredentials.accessToken': accessToSave,
+        'googleCalendarCredentials.refreshToken': refreshToSave,
+        'googleCalendarCredentials.isConnected': connected
       })
 
-      return true
+      return connected
     } catch (error) {
       console.error('Error handling calendar callback:', error)
       return false
