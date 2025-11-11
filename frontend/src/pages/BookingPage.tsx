@@ -55,6 +55,7 @@ const BookingPage: React.FC = () => {
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null)
   const [bookingLoading, setBookingLoading] = useState<boolean>(false)
   const [razorpayLoaded, setRazorpayLoaded] = useState<boolean>(false)
+  const [razorpayKey, setRazorpayKey] = useState<string | null>(null)
   const navigate = useNavigate()
 
   // Icon mapping for different fields
@@ -107,7 +108,25 @@ const BookingPage: React.FC = () => {
   // Fetch available mentors for a field
   const fetchAvailableMentors = async (field: string) => {
     try {
-      const response = await fetch(getApiUrl(`api/mentor-assignment/available/${field}`))
+      const token = localStorage.getItem('token')
+      if (!token || token === 'undefined' || token === 'null') {
+        console.warn('Skipping mentor assignment fetch: no auth token present')
+        return
+      }
+
+      const response = await fetch(getApiUrl(`api/mentor-assignment/available/${field}`), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.status === 401) {
+        console.warn('Unauthorized while fetching mentor assignment. Removing invalid token.')
+        localStorage.removeItem('token')
+        return
+      }
+
       const data = await response.json()
       
       if (data.success && data.data.mentors.length > 0) {
@@ -120,6 +139,8 @@ const BookingPage: React.FC = () => {
           currentLoad: mentor.currentLoad,
           specialization: mentor.specialization
         })
+      } else {
+        console.warn('No mentors returned for field:', field, data)
       }
     } catch (error) {
       console.error('Error fetching available mentors:', error)
@@ -127,6 +148,13 @@ const BookingPage: React.FC = () => {
   }
 
   const handleFieldSelect = async (fieldId: string) => {
+    const token = localStorage.getItem('token')
+    if (!token || token === 'undefined' || token === 'null') {
+      alert('Please log in to continue with booking.')
+      navigate('/login', { state: { redirectTo: '/book', selectedField: fieldId } })
+      return
+    }
+
     setSelectedField(fieldId)
     setCurrentStep('payment')
     // Fetch available mentors for this field
@@ -245,7 +273,11 @@ const BookingPage: React.FC = () => {
         setSessionConfig(data.data.sessionConfig)
       }
       
-      return data.data.orderId
+      if (data.data.key) {
+        setRazorpayKey(data.data.key)
+      }
+
+      return data.data
     } catch (error) {
       console.error('Error creating payment order:', error)
       throw error
@@ -268,16 +300,38 @@ const BookingPage: React.FC = () => {
         return
       }
       
-      const orderId = await createPaymentOrder()
-      console.log('Order ID received:', orderId)
+      const orderData = await createPaymentOrder()
+      console.log('Order data received:', orderData)
+
+      if (!orderData?.orderId) {
+        throw new Error('Failed to create payment order')
+      }
+
+      const resolvedKey =
+        orderData.key ||
+        razorpayKey ||
+        import.meta.env.VITE_RAZORPAY_KEY_ID ||
+        ''
+
+      if (!resolvedKey) {
+        throw new Error('Razorpay Key ID is not configured')
+      }
+
+      const resolvedAmount =
+        orderData.amount ||
+        (orderData.sessionConfig?.price ? orderData.sessionConfig.price * 100 : undefined) ||
+        (sessionConfig?.price ? sessionConfig.price * 100 : undefined) ||
+        99900
+
+      const resolvedSessionConfig = orderData.sessionConfig || sessionConfig
       
       const options = {
-        key: "rzp_test_RCoLR9QellVUtF", // Your Razorpay Key ID
-        amount: sessionConfig?.price ? sessionConfig.price * 100 : 99900, // Amount in paise
+        key: resolvedKey,
+        amount: resolvedAmount,
         currency: 'INR',
         name: 'Interview Booking',
-        description: `${sessionConfig?.name || selectedField} Session Booking`,
-        order_id: orderId,
+        description: `${resolvedSessionConfig?.name || selectedField} Session Booking`,
+        order_id: orderData.orderId,
         handler: async function (response: any) {
           try {
             // Verify payment on backend
@@ -344,7 +398,7 @@ const BookingPage: React.FC = () => {
 
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative overflow-hidden">
       <Header />
       
       {/* Page Header */}

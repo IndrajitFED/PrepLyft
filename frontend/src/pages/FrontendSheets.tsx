@@ -126,7 +126,7 @@ const FrontendSheets: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen relative overflow-hidden">
         <Header />
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
@@ -137,7 +137,7 @@ const FrontendSheets: React.FC = () => {
 
   if (selectedTopic) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen relative overflow-hidden">
         <Header />
         
         {/* Header */}
@@ -295,7 +295,7 @@ const FrontendSheets: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative overflow-hidden">
       <Header />
       
       {/* Hero Section */}

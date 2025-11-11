@@ -29,8 +29,29 @@ interface Session {
   meetingLink?: string
   autoAssigned?: boolean
   bookingStatus?: string
+  feedback?: {
+    communication: number
+    problemSolving: number
+    codeQuality: number
+    domain: string
+    comments?: string
+    codeSnippet?: string
+    codeLanguage?: string
+    mentor?: string
+    createdAt?: string
+  }
   createdAt: string
   updatedAt: string
+}
+
+interface FeedbackPayload {
+  communication: number
+  problemSolving: number
+  codeQuality: number
+  domain: string
+  comments?: string
+  codeSnippet?: string
+  codeLanguage?: string
 }
 
 const MentorDashboard: React.FC = () => {
@@ -43,6 +64,7 @@ const MentorDashboard: React.FC = () => {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
   const navigate = useNavigate()
 
   // Fetch calendar status
@@ -231,6 +253,35 @@ const MentorDashboard: React.FC = () => {
       alert('Error cancelling session')
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  const handleSubmitFeedback = async (sessionId: string, feedback: FeedbackPayload) => {
+    setFeedbackSubmitting(true)
+    try {
+      const response = await fetch(getApiUrl(`api/sessions/${sessionId}/complete`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ feedback })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        await fetchSessions()
+        closeModal()
+        alert('Feedback submitted successfully!')
+      } else {
+        alert(`Failed to submit feedback: ${data.message || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error submitting feedback:', error)
+      alert('Error submitting feedback')
+    } finally {
+      setFeedbackSubmitting(false)
     }
   }
 
@@ -426,14 +477,14 @@ const MentorDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative overflow-hidden">
       <Header />
       
       {/* Page Header */}
@@ -831,6 +882,8 @@ const MentorDashboard: React.FC = () => {
         onApprove={handleApproveSession}
         onCancel={handleCancelSession}
         loading={actionLoading}
+        onSubmitFeedback={handleSubmitFeedback}
+        feedbackLoading={feedbackSubmitting}
       />
       <Footer />
     </div>

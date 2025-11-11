@@ -9,17 +9,18 @@ import {
   BarChart3, 
   User, 
   ChevronRight,
-  Download,
   Plus,
   HelpCircle,
   Star,
   Trophy,
   ExternalLink,
-  BookOpen
+  BookOpen,
+  Layers
 } from 'lucide-react'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import { getApiUrl } from '../utils/env'
+import { useTheme } from '../contexts/ThemeContext'
 
 interface Session {
   _id: string
@@ -38,6 +39,8 @@ interface Session {
     codeQuality: number
     domain: string
     comments?: string
+    codeSnippet?: string
+    codeLanguage?: string
     mentor: string
     createdAt: string
   }
@@ -92,6 +95,7 @@ interface Subscription {
 const CandidateDashboard: React.FC = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { theme } = useTheme()
   const [sessions, setSessions] = useState<Session[]>([])
   const [stats, setStats] = useState<DashboardStats>({
     completed: 0,
@@ -322,10 +326,6 @@ const CandidateDashboard: React.FC = () => {
     navigate('/company-sheets-frontend')
   }
 
-  const handleDownloadResources = () => {
-    // Implement resource download logic
-    console.log('Downloading resources...')
-  }
 
   const handleJoinSession = (session: Session) => {
     if (session.meetingLink) {
@@ -340,10 +340,18 @@ const CandidateDashboard: React.FC = () => {
 
   const resources = [
     {
-      title: 'DSA Practice Sheets',
-      description: '200+ problems with solutions',
-      icon: <Code className="w-5 h-5 text-blue-600" />,
-      downloadUrl: '#'
+      title: 'Frontend Companywise Sheets',
+      description: 'Company-focused UI, performance, and architecture interview guides.',
+      icon: <Code className="w-5 h-5 text-purple-600" />,
+      actionLabel: 'Open Sheets',
+      onClick: handleCompanySheetsFrontend
+    },
+    {
+      title: 'DSA Company Sheets',
+      description: 'Company-aligned DSA patterns and must-solve problems with explanations.',
+      icon: <Layers className="w-5 h-5 text-indigo-600" />,
+      actionLabel: 'Open Sheets',
+      onClick: handleCompanySheetsDSA
     },
     {
       title: 'Data Science Sheets',
@@ -359,12 +367,17 @@ const CandidateDashboard: React.FC = () => {
     }
   ]
 
+  const primaryTextClass = theme === 'dark' ? 'text-slate-100' : 'text-gray-900'
+  const secondaryTextClass = theme === 'dark' ? 'text-slate-300' : 'text-gray-600'
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="candidate-dashboard-bg min-h-screen overflow-hidden">
+      <div className="relative z-10 flex flex-col min-h-screen">
       <Header />
 
+        <main className="flex-1">
       {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-8">
+          <section className="bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-8 shadow-lg shadow-primary-900/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.name || 'User'}!</h1>
           <p className="text-primary-100">
@@ -375,10 +388,10 @@ const CandidateDashboard: React.FC = () => {
             }
           </p>
         </div>
-      </div>
+          </section>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
         {/* Subscription Info Banner */}
         {subscription && subscription.plan && (
           <div className={`mb-8 rounded-xl p-6 ${
@@ -492,7 +505,7 @@ const CandidateDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
           {/* Left Column */}
           <div className="lg:col-span-2 space-y-6">
             {/* Next Session */}
@@ -661,46 +674,68 @@ const CandidateDashboard: React.FC = () => {
                       const avgScore = session.feedback ? 
                         ((session.feedback.communication || 0) + (session.feedback.problemSolving || 0) + (session.feedback.codeQuality || 0)) / 3 : 0
 
+                      const feedbackSurface =
+                        theme === 'dark'
+                          ? 'bg-slate-900/80 border border-white/10 text-slate-100'
+                          : 'bg-gradient-to-r from-blue-50 to-primary-50 border border-blue-200 text-gray-900'
+
+                      const metricLabelColor = theme === 'dark' ? 'text-slate-300' : 'text-gray-600'
+
                       return (
-                        <div key={session._id} className="p-4 bg-gradient-to-r from-blue-50 to-primary-50 rounded-lg border border-blue-200">
+                        <div key={session._id} className={`p-4 rounded-lg shadow-sm ${feedbackSurface}`}>
                           <div className="flex items-start justify-between mb-3">
                             <div>
                               <div className="flex items-center space-x-2 mb-1">
                                 {getSessionIcon(session.type)}
-                                <span className="font-semibold text-gray-900">{session.type} Session</span>
+                                <span className={`font-semibold ${primaryTextClass}`}>{session.type} Session</span>
                               </div>
-                              <p className="text-sm text-gray-600">{timeAgo}</p>
+                              <p className={`text-sm ${secondaryTextClass}`}>{timeAgo}</p>
                             </div>
-                            <div className="flex items-center space-x-1">
+                            <div className={`flex items-center space-x-1 ${primaryTextClass}`}>
                               <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                              <span className="text-lg font-bold text-gray-900">{avgScore.toFixed(1)}</span>
+                              <span className="text-lg font-bold">{avgScore.toFixed(1)}</span>
                             </div>
                           </div>
                           <div className="grid grid-cols-3 gap-3 mb-3">
                             <div className="text-center">
-                              <p className="text-xs text-gray-600 mb-1">Communication</p>
+                              <p className={`text-xs mb-1 ${metricLabelColor}`}>Communication</p>
                               <p className="text-lg font-semibold text-primary-600">{session.feedback?.communication || 0}/10</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-xs text-gray-600 mb-1">Problem Solving</p>
+                              <p className={`text-xs mb-1 ${metricLabelColor}`}>Problem Solving</p>
                               <p className="text-lg font-semibold text-green-600">{session.feedback?.problemSolving || 0}/10</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-xs text-gray-600 mb-1">Code Quality</p>
+                              <p className={`text-xs mb-1 ${metricLabelColor}`}>Code Quality</p>
                               <p className="text-lg font-semibold text-purple-600">{session.feedback?.codeQuality || 0}/10</p>
                             </div>
                           </div>
                           {session.feedback?.domain && (
                             <div className="mb-2">
-                              <p className="text-xs text-gray-600 mb-1">Strong in:</p>
+                              <p className={`text-xs mb-1 ${metricLabelColor}`}>Strong in:</p>
                               <span className="inline-block px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
                                 {session.feedback.domain}
                               </span>
                             </div>
                           )}
                           {session.feedback?.comments && (
-                            <div className="mt-2 pt-2 border-t border-blue-200">
-                              <p className="text-sm text-gray-700">{session.feedback.comments}</p>
+                            <div className={`mt-2 pt-2 border-t ${theme === 'dark' ? 'border-white/10' : 'border-blue-200'}`}>
+                              <p className={`text-sm ${secondaryTextClass}`}>{session.feedback.comments}</p>
+                            </div>
+                          )}
+                          {session.feedback?.codeSnippet && (
+                            <div className={`mt-4 rounded-lg p-4 border ${theme === 'dark' ? 'bg-slate-950/80 border-white/10' : 'bg-gray-900 text-gray-100 border-gray-800'}`}>
+                              <div className={`flex items-center justify-between text-xs mb-3 ${theme === 'dark' ? 'text-slate-300' : 'text-gray-400'}`}>
+                                <span>Interview Code Snippet</span>
+                                {session.feedback.codeLanguage && (
+                                  <span className="px-2 py-1 bg-gray-800 rounded-full text-[10px] uppercase tracking-wide">
+                                    {session.feedback.codeLanguage}
+                                  </span>
+                                )}
+                              </div>
+                              <pre className="text-sm leading-relaxed whitespace-pre-wrap font-mono">
+                                {session.feedback.codeSnippet}
+                              </pre>
                             </div>
                           )}
                         </div>
@@ -806,13 +841,6 @@ const CandidateDashboard: React.FC = () => {
                   Book New Session
                 </button>
                 <button 
-                  onClick={handleDownloadResources}
-                  className="w-full btn-secondary flex items-center justify-center"
-                >
-                  <Download className="w-5 h-5 mr-2" />
-                  Download Resources
-                </button>
-                <button 
                   onClick={handleViewProgress}
                   className="w-full btn-secondary flex items-center justify-center"
                 >
@@ -829,70 +857,85 @@ const CandidateDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Free Resources - Moved below Quick Actions */}
-            <div className="card">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Free Resources</h2>
-              <div className="grid grid-cols-1 gap-4">
-                {resources.map((resource, index) => (
-                  <div key={index} className="p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">{resource.icon}</div>
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900 mb-1">{resource.title}</h3>
-                        <p className="text-sm text-gray-600 mb-2">{resource.description}</p>
-                        <a 
-                          href={resource.downloadUrl} 
-                          className="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center"
-                        >
-                          <Download className="w-4 h-4 mr-1" />
-                          Download PDF
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Paid Sections */}
+            {/* Paid Sections - Moved below Quick Actions */}
             <div className="card border-2 border-primary-200 bg-primary-50/50">
               <div className="flex items-center mb-4">
                 <Star className="w-5 h-5 text-primary-600 mr-2" />
                 <h2 className="text-xl font-semibold text-gray-900">Paid Sections</h2>
               </div>
               <div className="space-y-3">
-                <button 
-                  onClick={handleCompanySheetsDSA}
-                  className="w-full bg-white hover:bg-primary-50 border border-primary-200 text-gray-900 px-4 py-3 rounded-lg flex items-center justify-between transition-colors"
-                >
-                  <div className="flex items-center">
-                    <BookOpen className="w-5 h-5 mr-3 text-primary-600" />
-                    <span className="font-medium">DSA Company Sheets</span>
+                <div className="bg-white dark:bg-slate-950/40 border border-primary-200 dark:border-white/10 rounded-xl px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <BookOpen className="w-5 h-5 mr-3 text-primary-600" />
+                      <span className="font-medium text-gray-900 dark:text-slate-100">Explore Frontend Resources</span>
+                    </div>
+                    <span className="text-sm font-semibold text-primary-600">₹1,799</span>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
-                </button>
-                <button 
-                  onClick={handleCompanySheetsFrontend}
-                  className="w-full bg-white hover:bg-primary-50 border border-primary-200 text-gray-900 px-4 py-3 rounded-lg flex items-center justify-between transition-colors"
-                >
-                  <div className="flex items-center">
-                    <Code className="w-5 h-5 mr-3 text-primary-600" />
-                    <span className="font-medium">Frontend Company Sheets</span>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
-                </button>
+                  <button
+                    onClick={() => navigate('/frontend-resources')}
+                    className="w-full mt-3 btn-outline flex items-center justify-center"
+                  >
+                    <ChevronRight className="w-4 h-4 mr-2" />
+                    View Resource Library
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Free Resources */}
+            <div className="card">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Free Resources</h2>
+              <div className="space-y-4">
+                {resources.map((resource, index) => {
+                  const resourceSurface =
+                    theme === 'dark'
+                      ? 'bg-slate-900/70 border border-white/10'
+                      : 'bg-gray-50 border border-gray-200'
+
+                  return (
+                    <div key={index} className={`p-4 rounded-lg ${resourceSurface}`}>
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">{resource.icon}</div>
+                        <div className="flex-1">
+                          <h3 className={`font-medium mb-1 ${primaryTextClass}`}>{resource.title}</h3>
+                          <p className={`text-sm mb-2 ${secondaryTextClass}`}>{resource.description}</p>
+                          {resource.onClick ? (
+                            <button
+                              onClick={resource.onClick}
+                              className="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center"
+                            >
+                              <ChevronRight className="w-4 h-4 mr-1" />
+                              {resource.actionLabel || 'Open'}
+                            </button>
+                          ) : resource.downloadUrl ? (
+                            <a 
+                              href={resource.downloadUrl} 
+                              className="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center"
+                            >
+                              <ChevronRight className="w-4 h-4 mr-1" />
+                              Coming Soon
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </div>
         </div>
-      </div>
+        </section>
+        </main>
 
       {/* Floating Help Button */}
-      <button className="fixed bottom-6 right-6 w-14 h-14 bg-secondary-600 text-white rounded-full shadow-lg hover:bg-secondary-700 transition-colors duration-200 flex items-center justify-center z-10">
+        <button className="fixed bottom-6 right-6 w-14 h-14 bg-secondary-600 text-white rounded-full shadow-lg hover:bg-secondary-700 transition-colors duration-200 flex items-center justify-center z-20">
         <HelpCircle className="w-6 h-6" />
       </button>
       
       <Footer />
+      </div>
     </div>
   )
 }

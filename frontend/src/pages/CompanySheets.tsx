@@ -68,7 +68,7 @@ const CompanySheets: React.FC = () => {
 
   if (selectedCompany) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen relative overflow-hidden">
         <Header />
         
         {/* Header */}
@@ -215,7 +215,7 @@ const CompanySheets: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative overflow-hidden">
       <Header />
       
       {/* Hero Section */}

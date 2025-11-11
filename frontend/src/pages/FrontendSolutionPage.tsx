@@ -36,7 +36,7 @@ const FrontendSolutionPage: React.FC = () => {
 
   if (!question || !topic) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen relative overflow-hidden">
         <Header />
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="text-center">
@@ -3005,7 +3005,7 @@ solution()`
   const solutionCode = getSolutionCode(question)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative overflow-hidden">
       <Header />
       
       {/* Header */}

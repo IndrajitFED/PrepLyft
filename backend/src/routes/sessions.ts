@@ -423,7 +423,9 @@ router.put('/:id/complete', [
   body('feedback.problemSolving').isInt({ min: 1, max: 10 }).withMessage('Problem solving rating must be between 1-10'),
   body('feedback.codeQuality').isInt({ min: 1, max: 10 }).withMessage('Code quality rating must be between 1-10'),
   body('feedback.domain').notEmpty().withMessage('Domain is required'),
-  body('feedback.comments').optional().isString().withMessage('Comments must be a string')
+  body('feedback.comments').optional().isString().withMessage('Comments must be a string'),
+  body('feedback.codeSnippet').optional().isString().isLength({ max: 20000 }).withMessage('Code snippet must be a string up to 20000 characters'),
+  body('feedback.codeLanguage').optional().isString().isLength({ max: 50 }).withMessage('Code language must be a string up to 50 characters')
 ], asyncHandler(async (req: AuthRequest, res: express.Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -453,10 +455,10 @@ router.put('/:id/complete', [
     })
   }
 
-  if (session.status !== 'in-progress' && session.status !== 'scheduled') {
+  if (!['in-progress', 'scheduled', 'completed'].includes(session.status)) {
     return res.status(400).json({
       success: false,
-      message: 'Only in-progress or scheduled sessions can be completed'
+      message: 'Only scheduled, in-progress, or completed sessions can accept feedback'
     })
   }
 
@@ -464,7 +466,7 @@ router.put('/:id/complete', [
   const sessionScore = feedback.communication + feedback.problemSolving + feedback.codeQuality
 
   // Add feedback
-  session.feedback = {
+  const feedbackData: any = {
     communication: feedback.communication,
     problemSolving: feedback.problemSolving,
     codeQuality: feedback.codeQuality,
@@ -473,6 +475,14 @@ router.put('/:id/complete', [
     mentor: new mongoose.Types.ObjectId(req.user!.userId),
     createdAt: new Date()
   }
+  if (feedback.codeSnippet) {
+    feedbackData.codeSnippet = feedback.codeSnippet
+  }
+  if (feedback.codeLanguage) {
+    feedbackData.codeLanguage = feedback.codeLanguage
+  }
+
+  session.feedback = feedbackData
   session.status = 'completed'
   await session.save()
 
