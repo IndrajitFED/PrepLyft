@@ -12,14 +12,14 @@ export class GoogleCalendarService {
         throw new Error('GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in environment variables')
       }
       
-      this.oauth2Client = new OAuth2Client(
+    this.oauth2Client = new OAuth2Client(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,
-        process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/mentor-calendar/callback'
-      );
-      
-      this.calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
-      this.setupAuth();
+      process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5000/api/mentor-calendar/callback'
+    );
+    
+    this.calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+    this.setupAuth();
     }
     return this.oauth2Client;
   }

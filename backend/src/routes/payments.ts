@@ -35,6 +35,9 @@ if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
   console.warn('RAZORPAY_KEY_SECRET:', RAZORPAY_KEY_SECRET ? 'Set' : 'Missing')
 }
 
+console.log("RAZORPAY_KEY_ID:", RAZORPAY_KEY_ID);
+console.log("RAZORPAY_KEY_SECRET:", RAZORPAY_KEY_SECRET);
+
 // Initialize Razorpay instance only if credentials are available
 let razorpay: Razorpay | null = null
 

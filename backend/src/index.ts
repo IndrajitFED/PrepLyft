@@ -1,4 +1,4 @@
-import express from 'express'
+import express, { type NextFunction, type RequestHandler } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
@@ -44,15 +44,8 @@ const io = new Server(server, {
 // Connect to MongoDB
 connectDB()
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 1000 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: {
-    success: false,
-    message: 'Too many requests from this IP, please try again later.'
-  }
-})
+// Rate limiting (disabled placeholder)
+const limiter: RequestHandler = (_req, _res, next) => next()
 
 // Middleware
 app.use(helmet())

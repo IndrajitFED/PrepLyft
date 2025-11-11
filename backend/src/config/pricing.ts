@@ -37,6 +37,24 @@ export const SESSION_PRICING: PricingConfig = {
     name: 'Behavioral Interview',
     price: 599,
     description: 'Behavioral and soft skills interview preparation'
+  },
+  'Frontend-Junior': {
+    id: 'Frontend-Junior',
+    name: 'Frontend Resources (1-3 yrs)',
+    price: 799,
+    description: 'Junior track covering core web foundations and modern JavaScript'
+  },
+  'Frontend-Mid': {
+    id: 'Frontend-Mid',
+    name: 'Frontend Resources (3-5 yrs)',
+    price: 1199,
+    description: 'Mid-level track focusing on advanced JS, React architecture, tooling'
+  },
+  'Frontend-Senior': {
+    id: 'Frontend-Senior',
+    name: 'Frontend Resources (5+ yrs)',
+    price: 1799,
+    description: 'Senior track targeting system design, performance and leadership interviews'
   }
 }
 

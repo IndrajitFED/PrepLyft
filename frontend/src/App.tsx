@@ -18,11 +18,19 @@ import TermsAndConditions from './pages/TermsAndConditions'
 import ShippingPolicy from './pages/ShippingPolicy'
 import CancellationAndRefunds from './pages/CancellationAndRefunds'
 import PrivacyPolicy from './pages/PrivacyPolicy'
+import AboutUs from './pages/AboutUs'
+import Careers from './pages/Careers'
+import Blog from './pages/Blog'
+import FrontendResources from './pages/FrontendResources'
+import FrontendResourceTopics from './pages/FrontendResourceTopics'
+import FrontendResourceDetail from './pages/FrontendResourceDetail'
+import { ThemeProvider, useTheme } from './contexts/ThemeContext'
 
-function App() {
+const AppRoutes = () => {
+  const { theme } = useTheme()
+
   return (
-    <AuthProvider>
-      <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen ${theme === 'dark' ? 'dark-theme' : 'light-theme'}`}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
@@ -30,6 +38,20 @@ function App() {
           
           {/* Public Policy Pages */}
           <Route path="/contact" element={<ContactUs />} />
+          <Route path="/about" element={<AboutUs />} />
+          <Route path="/careers" element={<Careers />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/frontend-resources" element={<FrontendResources />} />
+          <Route path="/frontend-resources/:trackId/topics" element={
+            <ProtectedRoute>
+              <FrontendResourceTopics />
+            </ProtectedRoute>
+          } />
+          <Route path="/frontend-resources/:trackId/topics/:topicId/:subtopicId" element={
+            <ProtectedRoute>
+              <FrontendResourceDetail />
+            </ProtectedRoute>
+          } />
           <Route path="/terms" element={<TermsAndConditions />} />
           <Route path="/shipping" element={<ShippingPolicy />} />
           <Route path="/cancellation" element={<CancellationAndRefunds />} />
@@ -97,7 +119,16 @@ function App() {
                   } />
         </Routes>
       </div>
+  )
+}
+
+function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <AppRoutes />
     </AuthProvider>
+    </ThemeProvider>
   )
 }
 

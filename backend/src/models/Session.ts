@@ -22,6 +22,8 @@ export interface ISession extends Document {
     codeQuality: number
     domain: string // Domain the candidate is good at
     comments?: string
+    codeSnippet?: string
+    codeLanguage?: string
     mentor: mongoose.Types.ObjectId
     createdAt: Date
   }
@@ -129,6 +131,15 @@ const sessionSchema = new Schema<ISession>({
     comments: {
       type: String,
       maxlength: [1000, 'Comments cannot exceed 1000 characters']
+    },
+    codeSnippet: {
+      type: String,
+      maxlength: [20000, 'Code snippet cannot exceed 20000 characters']
+    },
+    codeLanguage: {
+      type: String,
+      trim: true,
+      maxlength: [50, 'Code language cannot exceed 50 characters']
     },
     mentor: {
       type: Schema.Types.ObjectId,

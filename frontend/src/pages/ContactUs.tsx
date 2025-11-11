@@ -5,9 +5,6 @@ import {
   MapPin,
   Send,
   MessageSquare,
-  Users,
-  Heart,
-  Award,
 } from "lucide-react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -42,127 +39,17 @@ const ContactUs: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative overflow-hidden">
       <Header />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        {/* Team Section */}
-        <div className="mb-16 mt-16 bg-gradient-to-r from-primary-50 to-blue-50 rounded-lg shadow-md p-8 md:p-12">
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center space-x-2 mb-4">
-              <Users className="w-8 h-8 text-primary-600" />
-              <h2 className="text-3xl font-bold text-gray-900">
-                Meet Our Team
-              </h2>
-            </div>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              We're a passionate team dedicated to helping you ace your
-              interviews and achieve your career goals.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-            <div className="order-2 lg:order-1">
-              <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-                <img
-                  src="https://res.cloudinary.com/dtnx5ar9j/image/upload/v1762364961/Gemini_Generated_Image_itce75itce75itce_1_1_yitiyy.png"
-                  alt="MockAce Team"
-                  className="w-full h-auto object-cover"
-                  onError={(e) => {
-                    // Fallback if image fails to load
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="order-1 lg:order-2 space-y-6">
-              <div className="bg-white rounded-lg p-6 shadow-md">
-                <div className="flex items-start space-x-4">
-                  <div className="flex-shrink-0 w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
-                    <Heart className="w-6 h-6 text-primary-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      Our Mission
-                    </h3>
-                    <p className="text-gray-700">
-                      We believe in empowering every candidate with the
-                      confidence and skills needed to succeed in their dream job
-                      interviews. Our team of experienced mentors and engineers
-                      work tirelessly to provide you with the best interview
-                      preparation experience.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg p-6 shadow-md">
-                <div className="flex items-start space-x-4">
-                  <div className="flex-shrink-0 w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
-                    <Award className="w-6 h-6 text-primary-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      Our Expertise
-                    </h3>
-                    <p className="text-gray-700 mb-3">
-                      With years of combined experience in:
-                    </p>
-                    <ul className="list-disc list-inside text-gray-700 space-y-1 ml-4">
-                      <li>
-                        Technical interviews (DSA, System Design, Frontend, Backend, DataScience, DataAnalytics, Behavioral)
-                      </li>
-                      <li>Behavioral interviews and communication skills</li>
-                      <li>Industry best practices and hiring trends</li>
-                      <li>Personalized mentorship and feedback</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg p-6 shadow-md">
-                <div className="flex items-start space-x-4">
-                  <div className="flex-shrink-0 w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
-                    <Users className="w-6 h-6 text-primary-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      Why Choose Us
-                    </h3>
-                    <p className="text-gray-700">
-                      We're not just another interview prep platform. We're your
-                      partners in success. Our team is committed to
-                      understanding your unique needs and providing personalized
-                      guidance every step of the way. We celebrate your
-                      victories and support you through challenges.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 text-center">
-            <p className="text-gray-600">
-              <span className="font-semibold text-gray-900">
-                Join thousands of successful candidates
-              </span>{" "}
-              who have landed their dream jobs with MockAce. Your success story
-              starts here!
-            </p>
-          </div>
-        </div>
-        <br />
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Contact Us</h1>
           <p className="text-xl text-gray-600">
             We'd love to hear from you. Get in touch with us!
           </p>
         </div>
-        <br />
 
-        {/* Contact Details */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Contact Information */}
           <div className="space-y-8">
