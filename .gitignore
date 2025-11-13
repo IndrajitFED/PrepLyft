@@ -239,7 +239,6 @@ Thumbs.db
 
 # Deployment files
 deployment.tar.gz
-*.tar.gz
 
 # PM2 logs
 logs/
