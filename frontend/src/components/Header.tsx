@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Code, User, LogOut, Settings, Calendar, Users, ChevronDown, FileText, Shield, Mail, RotateCcw, Package, Moon, Sun } from 'lucide-react'
+import { Code, User, LogOut, Settings, Calendar, Users, ChevronDown, FileText, Shield, Mail, RotateCcw, Package, Moon, Sun, Menu, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 
@@ -14,6 +14,7 @@ const Header: React.FC<HeaderProps> = ({ showUserMenu = true }) => {
   const location = useLocation()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isLegalDropdownOpen, setIsLegalDropdownOpen] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const legalDropdownRef = useRef<HTMLDivElement>(null)
   const { theme, toggleTheme } = useTheme()
 
@@ -40,6 +41,10 @@ const Header: React.FC<HeaderProps> = ({ showUserMenu = true }) => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false)
+  }, [location.pathname])
 
   const handleSectionClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault()
@@ -160,7 +165,7 @@ const Header: React.FC<HeaderProps> = ({ showUserMenu = true }) => {
           </button>
           
           {isLegalDropdownOpen && (
-            <div className="absolute top-full left-0 mt-2 w-64 glass-dark backdrop-blur-xl rounded-lg border border-white/10 py-2 z-[200] pointer-events-auto shadow-xl">
+            <div className="absolute top-full left-0 mt-2 w-64 rounded-xl border border-white/10 bg-[#05071a]/95 backdrop-blur-2xl py-2 z-[200] pointer-events-auto shadow-[0_20px_45px_rgba(14,15,45,0.45)]">
               <Link
                 to="/contact"
                 onClick={() => setIsLegalDropdownOpen(false)}
@@ -247,7 +252,7 @@ const Header: React.FC<HeaderProps> = ({ showUserMenu = true }) => {
           </button>
 
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-48 glass-dark backdrop-blur-xl rounded-lg py-1 z-[200] border border-white/10 pointer-events-auto shadow-xl">
+            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-white/10 bg-[#05071a]/95 backdrop-blur-2xl py-1 z-[200] pointer-events-auto shadow-[0_20px_45px_rgba(14,15,45,0.45)]">
               <div className="px-4 py-2 border-b border-white/10">
                 <p className="text-sm font-medium text-white">{user.name}</p>
                 <p className="text-xs text-gray-400">{user.email}</p>
@@ -323,8 +328,75 @@ const Header: React.FC<HeaderProps> = ({ showUserMenu = true }) => {
     )
   }
 
+  const renderMobileNavigation = () => {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-3 py-2">
+          <span className="text-sm text-gray-300">Theme</span>
+          {renderThemeToggle('mobile')}
+        </div>
+
+        <div className="space-y-1">
+          {!user ? (
+            <>
+              <Link to="#pricing" onClick={(e) => { handleSectionClick(e); setIsMobileMenuOpen(false) }} className="block px-3 py-2 text-gray-300 hover:text-white">Pricing</Link>
+              <Link to="#features" onClick={(e) => { handleSectionClick(e); setIsMobileMenuOpen(false) }} className="block px-3 py-2 text-gray-300 hover:text-white">Features</Link>
+              <Link to="/blog" onClick={() => setIsMobileMenuOpen(false)} className={`block px-3 py-2 ${isActive('/blog') ? 'text-purple-400 font-medium' : 'text-gray-300 hover:text-white'}`}>Blog</Link>
+              <Link to="/about" onClick={() => setIsMobileMenuOpen(false)} className={`block px-3 py-2 ${isActive('/about') ? 'text-purple-400 font-medium' : 'text-gray-300 hover:text-white'}`}>About</Link>
+              <Link to="/contact" onClick={() => setIsMobileMenuOpen(false)} className={`block px-3 py-2 ${isActive('/contact') ? 'text-purple-400 font-medium' : 'text-gray-300 hover:text-white'}`}>Contact</Link>
+            </>
+          ) : (
+            <>
+              <Link to="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-2 text-gray-300 hover:text-white">Dashboard</Link>
+              {user.role === 'candidate' && (
+                <Link to="/booking" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-2 text-gray-300 hover:text-white">Book Session</Link>
+              )}
+              <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="block px-3 py-2 text-gray-300 hover:text-white">Profile Settings</Link>
+              <Link to="/blog" onClick={() => setIsMobileMenuOpen(false)} className={`block px-3 py-2 ${isActive('/blog') ? 'text-purple-400 font-medium' : 'text-gray-300 hover:text-white'}`}>Blog</Link>
+              <Link to="/about" onClick={() => setIsMobileMenuOpen(false)} className={`block px-3 py-2 ${isActive('/about') ? 'text-purple-400 font-medium' : 'text-gray-300 hover:text-white'}`}>About</Link>
+              <Link to="/contact" onClick={() => setIsMobileMenuOpen(false)} className={`block px-3 py-2 ${isActive('/contact') ? 'text-purple-400 font-medium' : 'text-gray-300 hover:text-white'}`}>Contact</Link>
+            </>
+          )}
+        </div>
+
+        <div className="px-3 py-2">
+          <div className="font-medium text-gray-300 mb-2">Legal</div>
+          <div className="ml-2 space-y-1">
+            <Link to="/contact" onClick={() => setIsMobileMenuOpen(false)} className={`block px-3 py-2 rounded-md ${isActive('/contact') ? 'bg-white/10 text-purple-400' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>Contact Us</Link>
+            <Link to="/terms" onClick={() => setIsMobileMenuOpen(false)} className={`block px-3 py-2 rounded-md ${isActive('/terms') ? 'bg-white/10 text-purple-400' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>Terms & Conditions</Link>
+            <Link to="/privacy" onClick={() => setIsMobileMenuOpen(false)} className={`block px-3 py-2 rounded-md ${isActive('/privacy') ? 'bg-white/10 text-purple-400' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>Privacy Policy</Link>
+            <Link to="/shipping" onClick={() => setIsMobileMenuOpen(false)} className={`block px-3 py-2 rounded-md ${isActive('/shipping') ? 'bg-white/10 text-purple-400' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>Shipping Policy</Link>
+            <Link to="/cancellation" onClick={() => setIsMobileMenuOpen(false)} className={`block px-3 py-2 rounded-md ${isActive('/cancellation') ? 'bg-white/10 text-purple-400' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>Cancellation & Refunds</Link>
+          </div>
+        </div>
+
+        {!user ? (
+          <div className="flex flex-col space-y-3 px-3 pb-4">
+            <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-300 hover:text-white transition-colors text-center">Login</Link>
+            <Link to="/register" onClick={() => setIsMobileMenuOpen(false)} className="glowing-box-button text-white text-center">
+              Register
+            </Link>
+          </div>
+        ) : (
+          <div className="px-3 pb-4">
+            <button
+              onClick={() => {
+                handleLogout()
+                setIsMobileMenuOpen(false)
+              }}
+              className="w-full flex items-center justify-center space-x-2 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200 transition hover:bg-red-500/20"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
-    <header className="glass backdrop-blur-xl border-b border-white/10">
+    <header className="glass backdrop-blur-xl border-b border-white/10 relative z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-2">
@@ -340,38 +412,34 @@ const Header: React.FC<HeaderProps> = ({ showUserMenu = true }) => {
             {getNavigationItems()}
           </nav>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             {renderThemeToggle('desktop')}
-          {showUserMenu && getAuthButtons()}
+            {showUserMenu && (
+              <>
+                <div className="hidden md:block">
+                  {getAuthButtons()}
+                </div>
+                <button
+                  type="button"
+                  className="md:hidden inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-2 text-white transition hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                  onClick={() => setIsMobileMenuOpen(prev => !prev)}
+                  aria-expanded={isMobileMenuOpen}
+                  aria-label="Toggle navigation menu"
+                >
+                  {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Mobile menu */}
-      <div className="md:hidden glass-dark backdrop-blur-xl border-t border-white/10">
-        <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-          <div className="flex items-center justify-between px-3 py-2">
-            <span className="text-sm text-gray-300">Theme</span>
-            {renderThemeToggle('mobile')}
-          </div>
-          <Link to="#pricing" onClick={handleSectionClick} className="block px-3 py-2 text-gray-300 hover:text-white">Pricing</Link>
-          <Link to="#features" onClick={handleSectionClick} className="block px-3 py-2 text-gray-300 hover:text-white">Features</Link>
-          <Link to="/blog" className={`block px-3 py-2 ${isActive('/blog') ? 'text-purple-400 font-medium' : 'text-gray-300 hover:text-white'}`}>Blog</Link>
-          <Link to="/about" className={`block px-3 py-2 ${isActive('/about') ? 'text-purple-400 font-medium' : 'text-gray-300 hover:text-white'}`}>About</Link>
-          <Link to="/careers" className={`block px-3 py-2 ${isActive('/careers') ? 'text-purple-400 font-medium' : 'text-gray-300 hover:text-white'}`}>Careers</Link>
-          <Link to="/contact" className={`block px-3 py-2 ${isActive('/contact') ? 'text-purple-400 font-medium' : 'text-gray-300 hover:text-white'}`}>Contact</Link>
-          <div className="px-3 py-2">
-            <div className="font-medium text-gray-300 mb-2">Legal</div>
-            <div className="ml-4 space-y-1">
-              <Link to="/contact" className={`block px-3 py-2 rounded-md ${isActive('/contact') ? 'bg-white/10 text-purple-400' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>Contact Us</Link>
-              <Link to="/terms" className={`block px-3 py-2 rounded-md ${isActive('/terms') ? 'bg-white/10 text-purple-400' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>Terms & Conditions</Link>
-              <Link to="/privacy" className={`block px-3 py-2 rounded-md ${isActive('/privacy') ? 'bg-white/10 text-purple-400' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>Privacy Policy</Link>
-              <Link to="/shipping" className={`block px-3 py-2 rounded-md ${isActive('/shipping') ? 'bg-white/10 text-purple-400' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>Shipping Policy</Link>
-              <Link to="/cancellation" className={`block px-3 py-2 rounded-md ${isActive('/cancellation') ? 'bg-white/10 text-purple-400' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>Cancellation & Refunds</Link>
-            </div>
-          </div>
+      {/* Mobile / tablet navigation */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden border-t border-white/10 px-2 pt-4 pb-6 sm:px-3 bg-[#05071a]/95 backdrop-blur-2xl shadow-[0_20px_45px_rgba(14,15,45,0.45)]">
+          {renderMobileNavigation()}
         </div>
-      </div>
+      )}
     </header>
   )
 }

@@ -50,7 +50,7 @@ const Register: React.FC = () => {
   const [errors, setErrors] = useState<FormErrors>({})
   const [successMessage, setSuccessMessage] = useState('')
   const navigate = useNavigate()
-  const { register } = useAuth()
+  const { register, setAuthData } = useAuth()
 
   // Load Google Identity Services
   useEffect(() => {
@@ -76,10 +76,10 @@ const Register: React.FC = () => {
                 try {
                   setIsLoading(true)
                   const result = await authAPI.googleLogin(response.credential)
-                  localStorage.setItem('token', result.token)
-                  
+                  setAuthData(result.token, result.user)
+
                   setSuccessMessage('Registration successful! Redirecting...')
-                  
+
                   setTimeout(() => {
                     const role = result.user.role
                     if (role === 'mentor') navigate('/mentor')
@@ -87,6 +87,7 @@ const Register: React.FC = () => {
                   }, 1500)
                 } catch (err: any) {
                   setErrors({ general: err.response?.data?.message || 'Google Sign-In failed' })
+                } finally {
                   setIsLoading(false)
                 }
               }

@@ -29,7 +29,7 @@ const Login: React.FC = () => {
   })
   
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { login, setAuthData } = useAuth()
 
   // Load Google Identity Services
   useEffect(() => {
@@ -55,14 +55,16 @@ const Login: React.FC = () => {
                 try {
                   setLoading(true)
                   const result = await authAPI.googleLogin(response.credential)
-                  localStorage.setItem('token', result.token)
-                  
+                  setAuthData(result.token, result.user)
+
                   const role = result.user.role
                   if (role === 'mentor') navigate('/mentor')
                   else if (role === 'admin') navigate('/admin')
                   else navigate('/dashboard')
                 } catch (err: any) {
                   setError(err.response?.data?.message || 'Google Sign-In failed')
+                } finally {
+                  setLoading(false)
                 }
               }
             })

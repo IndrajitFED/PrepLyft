@@ -16,6 +16,7 @@ interface AuthContextType {
   register: (userData: RegisterData) => Promise<void>
   logout: () => void
   updateUser: (userData: Partial<User>) => void
+  setAuthData: (token: string, userData: User) => void
 }
 
 interface RegisterData {
@@ -80,6 +81,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }
 
+  const setAuthData = (token: string, userData: User) => {
+    if (token && token !== 'undefined' && token !== 'null') {
+      localStorage.setItem('token', token)
+      setUser(userData)
+    } else {
+      localStorage.removeItem('token')
+      setUser(null)
+      throw new Error('Invalid token received from server')
+    }
+  }
+
   const login = async (email: string, password: string) => {
     try {
       console.log('AuthContext - Login attempt for:', email)
@@ -89,15 +101,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { token, user } = response
       console.log('AuthContext - Extracted token:', token)
       console.log('AuthContext - Extracted user:', user)
-      
-      if (token && token !== 'undefined' && token !== 'null') {
-        localStorage.setItem('token', token)
-        console.log('AuthContext - Token stored in localStorage')
-        setUser(user)
-      } else {
-        console.error('AuthContext - Invalid token received:', token)
-        throw new Error('Invalid token received from server')
-      }
+      setAuthData(token, user)
+      console.log('AuthContext - Token stored in localStorage')
     } catch (error: any) {
       console.error('AuthContext - Login error:', error)
       throw new Error(error.response?.data?.message || 'Login failed')
@@ -119,15 +124,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { token, user } = response;
       console.log('AuthContext - Extracted token:', token)
       console.log('AuthContext - Extracted user:', user)
-      
-      if (token && token !== 'undefined' && token !== 'null') {
-        localStorage.setItem('token', token)
-        console.log('AuthContext - Token stored in localStorage')
-        setUser(user)
-      } else {
-        console.error('AuthContext - Invalid token received:', token)
-        throw new Error('Invalid token received from server')
-      }
+      setAuthData(token, user)
+      console.log('AuthContext - Token stored in localStorage')
     } catch (error: any) {
       console.error('AuthContext - Register error:', error)
       throw new Error(error.response?.data?.message || 'Registration failed')
@@ -152,6 +150,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     register,
     logout,
     updateUser,
+    setAuthData,
   }
 
   return (
