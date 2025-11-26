@@ -15,28 +15,15 @@ import {
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 
-const generateStarShadows = (count: number) => {
-  const maxRange = 2000
-  return Array.from({ length: count })
-    .map(() => `${Math.floor(Math.random() * maxRange)}px ${Math.floor(Math.random() * maxRange)}px #FFF`)
-    .join(', ')
-}
-
 const LandingPage: React.FC = () => {
   const location = useLocation()
   const [activeFeature, setActiveFeature] = useState(0)
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   const [activePlan, setActivePlan] = useState<'basic' | 'standard' | 'premium'>('standard')
-  const [typedCode, setTypedCode] = useState('')
   const scrollContainerRef = React.useRef<HTMLDivElement>(null)
   const [scrollPosition, setScrollPosition] = useState(0)
   const lastScrollPositionRef = React.useRef<number>(0)
   const isLoopingRef = React.useRef<boolean>(false)
-  const { smallStars, mediumStars, bigStars } = React.useMemo(() => ({
-    smallStars: generateStarShadows(700),
-    mediumStars: generateStarShadows(200),
-    bigStars: generateStarShadows(100)
-  }), [])
   const partnerLogos = React.useMemo(() => ([
     { name: 'Whatsapp', logo: 'https://res.cloudinary.com/dtnx5ar9j/image/upload/v1762802259/whatsapp-black_pplvdj.svg' },
     { name: 'Facebook', logo: 'https://res.cloudinary.com/dtnx5ar9j/image/upload/v1762802259/facebook-5_ws0tnu.svg' },
@@ -49,34 +36,6 @@ const LandingPage: React.FC = () => {
     { name: 'Microsoft', logo: 'https://res.cloudinary.com/dtnx5ar9j/image/upload/v1762870677/microsoft-6_gjwxdl.svg' },
     { name: 'Shopify', logo: 'https://res.cloudinary.com/dtnx5ar9j/image/upload/v1762868977/shopify-2_yoecdd.svg' }
   ]), []);
-  
-  const codeSnippet = `def binary_search(arr, target):
-    left, right = 0, len(arr) - 1
-    
-    while left <= right:
-        mid = (left + right) // 2
-        if arr[mid] == target:
-            return mid
-        elif arr[mid] < target:
-            left = mid + 1
-        else:
-            right = mid - 1
-    
-    return -1`
-
-  useEffect(() => {
-    let currentIndex = 0
-    const timer = setInterval(() => {
-      if (currentIndex < codeSnippet.length) {
-        setTypedCode(codeSnippet.slice(0, currentIndex + 1))
-        currentIndex++
-      } else {
-        clearInterval(timer)
-      }
-    }, 30) // Adjust speed here (lower = faster)
-
-    return () => clearInterval(timer)
-  }, [codeSnippet])
 
   // Calculate card transform based on scroll position (Flutter PageView style)
   const getCardTransform = React.useCallback((index: number) => {
@@ -239,159 +198,115 @@ const LandingPage: React.FC = () => {
             from { transform: translateY(0px); }
             to { transform: translateY(-2000px); }
           }
+          @keyframes scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+          }
+          .animate-scroll {
+            animation: scroll 30s linear infinite;
+          }
         `}
       </style>
       <Header />
 
-      {/* Hero Section - Dark Gradient Theme */}
-      <section className="relative py-20 overflow-hidden">
-        {/* Animated gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(120,119,198,0.3),transparent_50%)]"></div>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(139,92,246,0.2),transparent_50%)]"></div>
+      {/* Hero Section - Auth0 Style */}
+      <section className="relative min-h-[85vh] flex flex-col overflow-hidden">
+        {/* Video Background */}
+        <div className="absolute inset-0 z-0">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+          >
+            <source src="https://cdn.auth0.com/website/homepage/background.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+          {/* Fallback gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(120,119,198,0.3),transparent_50%)]"></div>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(139,92,246,0.2),transparent_50%)]"></div>
+          </div>
         </div>
-        {/* Starfield */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-          <div className="absolute" style={{ width: 1, height: 1, boxShadow: smallStars, animation: 'animStar 180s linear infinite' }} />
-          <div className="absolute" style={{ width: 1, height: 1, top: 2000, boxShadow: smallStars, animation: 'animStar 180s linear infinite' }} />
-          <div className="absolute" style={{ width: 2, height: 2, boxShadow: mediumStars, animation: 'animStar 240s linear infinite' }} />
-          <div className="absolute" style={{ width: 2, height: 2, top: 2000, boxShadow: mediumStars, animation: 'animStar 240s linear infinite' }} />
-          <div className="absolute" style={{ width: 3, height: 3, boxShadow: bigStars, animation: 'animStar 300s linear infinite' }} />
-          <div className="absolute" style={{ width: 3, height: 3, top: 2000, boxShadow: bigStars, animation: 'animStar 300s linear infinite' }} />
-        </div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 gap-12 items-center">
-            <div className="flex justify-center items-center flex-col">
-              <div className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium glass mb-6 backdrop-blur-sm">
-                <Star className="w-4 h-4 text-yellow-400 mr-2 fill-yellow-400" />
-                <span className="text-white">500+ Students Placed in Top Companies</span>
-              </div>
-              
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 font-rebond leading-tight">
-                Ace Your <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Technical</span> Interviews
-              </h1>
-              
-              <p className="text-center text-xl text-gray-300 mb-8 leading-relaxed">
-                Practice with industry experts, get personalized feedback, and land your dream job in Software Engineer, Data Science, and Data Analytics.
-              </p>
-              
-              <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                <Link to="/register" className="glossy-cta-gradient-border text-lg px-8 py-4 flex items-center justify-center relative">
-                  <span className="relative z-10">Book Mock Interview →</span>
-                </Link>
-              </div>
-              
-              <div className="flex items-center space-x-6 text-sm text-gray-400">
-                <div className="flex items-center">
-                  <CheckCircle className="w-4 h-4 text-green-400 mr-2" />
-                  <span>Money Back Guarantee</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="relative flex items-center justify-center">
-              <div className="glossy-cta-gradient-noborder rounded-2xl p-6 flex-[0.7]">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-white">Mock Interview Session</h3>
-                  <span className="px-3 py-1 bg-red-500/20 text-red-400 text-xs font-medium rounded-full border border-red-500/30">Live</span>
-                </div>
-                
-                <div className="bg-gray-950 rounded-lg p-4 mb-4 min-h-[292px] border border-gray-800">
-                  <pre className="text-green-400 text-sm font-mono">
-                    {typedCode}
-                    <span className="animate-pulse">|</span>
-                  </pre>
-                </div>
-                
-                <div className="mb-4">
-                  <p className="text-sm text-gray-400 mb-2">Interviewer: Indrajit Shinde, SSE Publicis Sapient</p>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-400">Problem Solving</span>
-                      <div className="flex items-center">
-                        <div className="w-20 bg-gray-800 rounded-full h-2 mr-2">
-                          <div className="bg-green-500 h-2 rounded-full" style={{ width: '85%' }}></div>
-                        </div>
-                        <span className="text-sm font-medium text-white">85%</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-400">Communication</span>
-                      <div className="flex items-center">
-                        <div className="w-20 bg-gray-800 rounded-full h-2 mr-2">
-                          <div className="bg-blue-500 h-2 rounded-full" style={{ width: '78%' }}></div>
-                        </div>
-                        <span className="text-sm font-medium text-white">78%</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-400">Code Quality</span>
-                      <div className="flex items-center">
-                        <div className="w-20 bg-gray-800 rounded-full h-2 mr-2">
-                          <div className="bg-purple-500 h-2 rounded-full" style={{ width: '92%' }}></div>
-                        </div>
-                        <span className="text-sm font-medium text-white">92%</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+
+        {/* Content Container */}
+        <div className="relative z-10 flex-1 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 py-16">
+          <div className="max-w-7xl mx-auto w-full text-center">
+            {/* New Badge */}
+            <a
+              href="#"
+              className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-purple-500/20 border border-purple-500/30 text-white hover:bg-purple-500/30 transition-colors"
+            >
+              <span className="text-sm font-medium">New</span>
+              <span className="text-sm">500+ Students Placed in Top Companies</span>
+              <span className="text-sm">→</span>
+            </a>
+
+            {/* Main Headline */}
+            <h1 className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-white mb-8 font-rebond leading-tight">
+              Ace Your Technical Interviews
+            </h1>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+              <Link
+                to="/register"
+                className="inline-flex items-center justify-center px-8 py-4 bg-white text-black rounded-lg font-semibold hover:bg-gray-100 transition-colors border border-gray-200"
+              >
+                Start Learning for free
+              </Link>
+              <Link
+                to="/login"
+                className="inline-flex items-center justify-center px-8 py-4 bg-transparent text-white rounded-lg font-semibold hover:bg-white/10 transition-colors border border-white/30"
+              >
+                Login
+              </Link>
             </div>
           </div>
         </div>
-        
-      </section>
 
-      {/* Hiring Partners Section - Dark Theme */}
-      <section className="py-20 relative overflow-hidden">
-        {/* Solid background */}
-        <div className="absolute inset-0 bg-black">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(139,92,246,0.15),transparent_75%)]"></div>
-        </div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          {/* Header Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-12"
+        {/* Company Logos Section - Scrolling with Fade */}
+        <div className="relative z-10 pb-8">
+          <div 
+            className="relative overflow-hidden max-w-[131.2rem] mx-auto"
+            style={{
+              maskImage: 'linear-gradient(to right, transparent, black 10rem, black calc(100% - 10rem), transparent)',
+              WebkitMaskImage: 'linear-gradient(to right, transparent, black 10rem, black calc(100% - 10rem), transparent)'
+            }}
           >
-            <p className="text-sm font-medium text-purple-400 mb-3">Trusted by Leaders</p>
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 font-rebond">
-              Clients We've Partnered With
-            </h2>
-            <p className="text-base text-gray-400 max-w-2xl mx-auto leading-relaxed">
-              Their logos below represent the trust they've placed in us and the successful collaborations we've built together.
-            </p>
-          </motion.div>
-          
-          {/* Logo Cards Scroll */}
-          <div className="mt-12 overflow-hidden">
-            <motion.div
-              className="flex items-center gap-10"
-              animate={{ x: ['0%', '-50%'] }}
-              transition={{ duration: 30, repeat: Infinity, ease: 'linear' }}
-            >
-              {partnerLogos.concat(partnerLogos).map((company, index) => (
+            <div className="flex items-center gap-12 animate-scroll">
+              {/* First set of logos */}
+              {partnerLogos.map((company, index) => (
                 <div
-                  key={`${company.name}-${index}`}
-                  className="flex-shrink-0 flex items-center justify-center"
+                  key={`logo-${index}`}
+                  className="flex-shrink-0 flex items-center justify-center w-32 h-12 md:h-14"
                 >
-                  <div className="w-32 h-12 md:h-14 flex items-center justify-center">
-                    <img
-                      src={company.logo}
-                      alt={company.name}
-                      className="w-full h-full object-contain opacity-85"
-                      style={{ filter: 'grayscale(1) brightness(1.35)', maxWidth: '100%', maxHeight: '100%' }}
-                      loading="lazy"
-                    />
-                  </div>
+                  <img
+                    src={company.logo}
+                    alt={company.name}
+                    className="w-full h-full object-contain opacity-70 hover:opacity-100 transition-opacity"
+                    loading="lazy"
+                    style={{ filter: 'grayscale(1) brightness(0) invert(1)' }}
+                  />
                 </div>
               ))}
-            </motion.div>
+              {/* Duplicate set for seamless loop */}
+              {partnerLogos.map((company, index) => (
+                <div
+                  key={`logo-duplicate-${index}`}
+                  className="flex-shrink-0 flex items-center justify-center w-32 h-12 md:h-14"
+                >
+                  <img
+                    src={company.logo}
+                    alt={company.name}
+                    className="w-full h-full object-contain opacity-70 hover:opacity-100 transition-opacity"
+                    loading="lazy"
+                    style={{ filter: 'grayscale(1) brightness(0) invert(1)' }}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

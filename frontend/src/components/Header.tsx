@@ -331,10 +331,11 @@ const Header: React.FC<HeaderProps> = ({ showUserMenu = true }) => {
   const renderMobileNavigation = () => {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between px-3 py-2">
+        {/* Dark and Light Theme Toggle Button */}
+        {/* <div className="flex items-center justify-between px-3 py-2">
           <span className="text-sm text-gray-300">Theme</span>
           {renderThemeToggle('mobile')}
-        </div>
+        </div> */}
 
         <div className="space-y-1">
           {!user ? (
