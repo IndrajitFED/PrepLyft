@@ -105,6 +105,46 @@ const BookingPage: React.FC = () => {
     }
   }
 
+  // Fetch session config for a specific field
+  const fetchSessionConfig = async (field: string) => {
+    try {
+      const response = await fetch(getApiUrl(`api/pricing/sessions/${field}`))
+      const data = await response.json()
+      
+      if (data.success && data.data.config) {
+        setSessionConfig({
+          field: data.data.field,
+          name: data.data.config.name,
+          price: data.data.config.price,
+          description: data.data.config.description
+        })
+      } else {
+        // Fallback: try to get from fieldOptions
+        const fieldOption = fieldOptions.find(opt => opt.id === field)
+        if (fieldOption && fieldOption.price) {
+          setSessionConfig({
+            field: field,
+            name: fieldOption.name,
+            price: fieldOption.price,
+            description: fieldOption.description
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching session config:', error)
+      // Fallback: try to get from fieldOptions
+      const fieldOption = fieldOptions.find(opt => opt.id === field)
+      if (fieldOption && fieldOption.price) {
+        setSessionConfig({
+          field: field,
+          name: fieldOption.name,
+          price: fieldOption.price,
+          description: fieldOption.description
+        })
+      }
+    }
+  }
+
   // Fetch available mentors for a field
   const fetchAvailableMentors = async (field: string) => {
     try {
@@ -157,8 +197,11 @@ const BookingPage: React.FC = () => {
 
     setSelectedField(fieldId)
     setCurrentStep('payment')
-    // Fetch available mentors for this field
-    await fetchAvailableMentors(fieldId)
+    // Fetch session config and available mentors for this field
+    await Promise.all([
+      fetchSessionConfig(fieldId),
+      fetchAvailableMentors(fieldId)
+    ])
   }
 
   // Handle slot selection from smart calendar
@@ -493,7 +536,7 @@ const BookingPage: React.FC = () => {
                   
               {/* Assigned Mentor Info */}
               {assignedMentor && (
-                <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                <div className="bg-gray-50 rounded-lg p-4 mb-6">
                   <h4 className="font-medium text-gray-900 mb-2">Your Assigned Mentor</h4>
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">

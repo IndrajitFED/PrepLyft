@@ -68,8 +68,9 @@ router.post('/create-order', [
   const userId = req.user!.userId
 
   // Get price from backend based on field
-  const amount = getSessionPrice(field) * 100 // Convert to paise
-  const sessionConfig = getSessionConfig(field)
+  const price = await getSessionPrice(field)
+  const amount = price * 100 // Convert to paise
+  const sessionConfig = await getSessionConfig(field)
 
   console.log('Razorpay initialized:', razorpay);
   console.log("Amount", userId, amount, currency, field);

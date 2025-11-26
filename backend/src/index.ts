@@ -8,6 +8,7 @@ import dotenv from 'dotenv'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import path from 'path'
+import mongoose from 'mongoose'
 
 // Load environment variables FIRST before any other imports
 // Explicitly load from backend directory to ensure .env is found
@@ -31,6 +32,7 @@ import leaderboardRoutes from './routes/leaderboard'
 // Import middleware
 import { errorHandler, notFound } from './middleware/errorHandler'
 import { connectDB } from './config/database'
+import { initializePricing } from './config/pricing'
 
 const app = express()
 const server = createServer(app)
@@ -43,6 +45,15 @@ const io = new Server(server, {
 
 // Connect to MongoDB
 connectDB()
+
+// Initialize pricing after MongoDB connection is established
+mongoose.connection.once('connected', async () => {
+  try {
+    await initializePricing()
+  } catch (error) {
+    console.error('Failed to initialize pricing:', error)
+  }
+})
 
 // Rate limiting (disabled placeholder)
 const limiter: RequestHandler = (_req, _res, next) => next()

@@ -7,9 +7,9 @@ const router = express.Router()
 // @route   GET /api/pricing/sessions
 // @desc    Get all available session types with pricing
 // @access  Public
-router.get('/sessions', (req: express.Request, res: express.Response) => {
+router.get('/sessions', async (req: express.Request, res: express.Response) => {
   try {
-    const sessionTypes = getAllSessionTypes()
+    const sessionTypes = await getAllSessionTypes()
     
     return ResponseHandler.success(res, { 
       sessionTypes 
@@ -23,11 +23,11 @@ router.get('/sessions', (req: express.Request, res: express.Response) => {
 // @route   GET /api/pricing/sessions/:field
 // @desc    Get pricing for a specific session field
 // @access  Public
-router.get('/sessions/:field', (req: express.Request, res: express.Response) => {
+router.get('/sessions/:field', async (req: express.Request, res: express.Response) => {
   try {
     const { field } = req.params
-    const config = getSessionConfig(field)
-    const price = getSessionPrice(field)
+    const config = await getSessionConfig(field)
+    const price = await getSessionPrice(field)
     
     return ResponseHandler.success(res, { 
       field,
