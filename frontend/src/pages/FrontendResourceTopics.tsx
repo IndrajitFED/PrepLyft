@@ -93,7 +93,7 @@ const FrontendResourceTopics: React.FC = () => {
                     onClick={() =>
                       navigate(`/frontend-resources/${trackId}/topics/${topic.id}/${subtopic.id}`)
                     }
-                    className="w-full text-left bg-gradient-to-r from-gray-50 to-white dark:from-slate-950/40 dark:to-slate-900/60 border border-gray-200 dark:border-white/10 rounded-2xl px-4 sm:px-6 py-4 hover:border-purple-400 hover:shadow-lg transition"
+                    className="w-full text-left bg-gradient-to-r to-white dark:from-slate-950/40 dark:to-slate-900/60 border border-gray-200 dark:border-white/10 rounded-2xl px-4 sm:px-6 py-4 hover:border-purple-400 hover:shadow-lg transition"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
