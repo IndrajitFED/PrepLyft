@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, Lightbulb, BookOpen, Star, Zap, Code, Layers, ChevronRight } from 'lucide-react'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
-import { frontendResourceTracks } from '../data/frontendResources'
+import { frontendResourceTracks, getFrontendResourceTracks, FrontendResourceTrack } from '../data/frontendResources'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAuth } from '../contexts/AuthContext'
-import { getApiUrl } from '../utils/env'
+import { getApiUrl, getApiBaseUrl } from '../utils/env'
 
 type TrackId = 'junior' | 'mid' | 'senior'
 
@@ -17,6 +17,7 @@ const FrontendResources: React.FC = () => {
   const [razorpayLoaded, setRazorpayLoaded] = useState(false)
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [activeTrack, setActiveTrack] = useState<TrackId | null>(null)
+  const [tracks, setTracks] = useState<FrontendResourceTrack[]>(frontendResourceTracks)
   const [accessState, setAccessState] = useState<Record<TrackId, { unlocked: boolean; via: 'self' | 'bundle' | null }>>({
     junior: { unlocked: false, via: null },
     mid: { unlocked: false, via: null },
@@ -90,6 +91,21 @@ const FrontendResources: React.FC = () => {
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
   }, [computeAccessState])
+
+  // Fetch pricing from backend on component mount
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        const apiBaseUrl = getApiBaseUrl()
+        const tracksWithPricing = await getFrontendResourceTracks(apiBaseUrl)
+        setTracks(tracksWithPricing)
+      } catch (error) {
+        console.error('Error fetching frontend resource pricing:', error)
+        // Keep default tracks if fetch fails
+      }
+    }
+    fetchPricing()
+  }, [])
 
   const ensureLoggedIn = () => {
     if (!user) {
@@ -292,7 +308,7 @@ const FrontendResources: React.FC = () => {
 
         {/* Tracks */}
         <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
-          {frontendResourceTracks.map((track) => {
+          {tracks.map((track) => {
             const trackAccess = accessState[track.id]
             const isUnlocked = trackAccess?.unlocked
             const includedViaSenior = trackAccess?.via === 'bundle'

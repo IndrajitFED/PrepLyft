@@ -29,6 +29,7 @@ export type FrontendResourceTrack = {
   id: 'junior' | 'mid' | 'senior'
   experienceRange: string
   price: string
+  priceNumber?: number // Store numeric price for calculations
   ctaLabel: string
   description: string
   outcomes: string[]
@@ -36,11 +37,18 @@ export type FrontendResourceTrack = {
   featuredArticles: FrontendResourceArticle[]
 }
 
-export const frontendResourceTracks: FrontendResourceTrack[] = [
+// Mapping between track IDs and backend pricing IDs
+export const trackToPricingId: Record<'junior' | 'mid' | 'senior', string> = {
+  junior: 'Frontend-Junior',
+  mid: 'Frontend-Mid',
+  senior: 'Frontend-Senior'
+}
+
+// Base track data (without pricing - pricing will be fetched from backend)
+export const frontendResourceTracksBase: Omit<FrontendResourceTrack, 'price' | 'priceNumber'>[] = [
   {
     id: 'junior',
     experienceRange: '1 – 3 Years',
-    price: '₹799',
     ctaLabel: 'Start Junior Track',
     description:
       'Build a rock-solid foundation in HTML, CSS, and modern JavaScript.',
@@ -86,7 +94,6 @@ export const frontendResourceTracks: FrontendResourceTrack[] = [
   {
     id: 'mid',
     experienceRange: '3 – 5 Years',
-    price: '₹1,199',
     ctaLabel: 'Unlock 3-5Y Track',
     description:
       'Bridge the gap between strong fundamentals and production-grade frontend systems.',
@@ -132,7 +139,6 @@ export const frontendResourceTracks: FrontendResourceTrack[] = [
   {
     id: 'senior',
     experienceRange: '5+ Years',
-    price: '₹1,799',
     ctaLabel: 'Join Senior Track',
     description:
       'Tailored for staff/principal-level interviews focusing on system design, architecture, and cross-team leadership.',
@@ -176,4 +182,77 @@ export const frontendResourceTracks: FrontendResourceTrack[] = [
     featuredArticles: []
   }
 ]
+
+/**
+ * Format price number to string with currency symbol
+ */
+const formatPrice = (price: number): string => {
+  return `₹${price.toLocaleString('en-IN')}`
+}
+
+/**
+ * Fetch pricing from backend and populate tracks
+ */
+export const getFrontendResourceTracks = async (apiUrl: string = ''): Promise<FrontendResourceTrack[]> => {
+  try {
+    // Fetch all pricing from backend
+    const response = await fetch(`${apiUrl}/api/pricing/sessions`)
+    const data = await response.json()
+    
+    if (data.success && data.data.sessionTypes) {
+      const pricingMap = new Map<string, number>()
+      
+      // Create a map of pricing ID to price
+      data.data.sessionTypes.forEach((session: any) => {
+        pricingMap.set(session.id, session.price)
+      })
+      
+      // Populate tracks with pricing from backend
+      return frontendResourceTracksBase.map(track => {
+        const pricingId = trackToPricingId[track.id]
+        const priceNumber = pricingMap.get(pricingId) || 999 // Fallback price
+        const price = formatPrice(priceNumber)
+        
+        return {
+          ...track,
+          price,
+          priceNumber
+        }
+      })
+    }
+  } catch (error) {
+    console.error('Error fetching frontend resource pricing:', error)
+  }
+  
+  // Fallback: return tracks with default pricing if API fails
+  const defaultPricing: Record<'junior' | 'mid' | 'senior', number> = {
+    junior: 799,
+    mid: 1199,
+    senior: 1799
+  }
+  
+  return frontendResourceTracksBase.map(track => {
+    const priceNumber = defaultPricing[track.id]
+    return {
+      ...track,
+      price: formatPrice(priceNumber),
+      priceNumber
+    }
+  })
+}
+
+// Export default tracks for backward compatibility (will be populated with pricing when fetched)
+export const frontendResourceTracks: FrontendResourceTrack[] = frontendResourceTracksBase.map(track => {
+  const defaultPricing: Record<'junior' | 'mid' | 'senior', number> = {
+    junior: 799,
+    mid: 1199,
+    senior: 1799
+  }
+  const priceNumber = defaultPricing[track.id]
+  return {
+    ...track,
+    price: formatPrice(priceNumber),
+    priceNumber
+  }
+})
 
