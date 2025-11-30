@@ -60,25 +60,75 @@ const limiter: RequestHandler = (_req, _res, next) => next()
 
 // Middleware
 app.use(helmet())
-app.use(cors({
-  origin: [
-    'http://mockinterview.shop',
-    'https://mockinterview.shop',
-    'http://www.mockinterview.shop',
-    'https://www.mockinterview.shop',
-    'http://165.22.218.43',
-    'https://165.22.218.43',
-    'http://165.22.218.43:4173',
-    'https://165.22.218.43:4173',
-    'http://localhost:3000',
-    'http://localhost:4173',
-    'http://localhost:4174'
-  ],
+
+// CORS configuration with dynamic origin checking
+const allowedOrigins = [
+  'http://mockinterview.shop',
+  'https://mockinterview.shop',
+  'http://www.mockinterview.shop',
+  'https://www.mockinterview.shop',
+  'http://165.22.218.43',
+  'https://165.22.218.43',
+  'http://165.22.218.43:4173',
+  'https://165.22.218.43:4173',
+  'http://localhost:3000',
+  'http://localhost:4173',
+  'http://localhost:4174'
+]
+
+// Add FRONTEND_URL from environment if provided
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL)
+}
+
+// CORS origin function to handle dynamic origins
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Allow requests with no origin (like mobile apps, Postman, or same-origin requests)
+    if (!origin) {
+      return callback(null, true)
+    }
+
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+
+    // In development, allow localhost with any port
+    const isDevelopment = process.env.NODE_ENV !== 'production'
+    if (isDevelopment) {
+      const localhostRegex = /^https?:\/\/localhost(:\d+)?$/
+      const localhostIPv4Regex = /^https?:\/\/127\.0\.0\.1(:\d+)?$/
+      const localhostIPv6Regex = /^https?:\/\/\[::1\](:\d+)?$/
+      
+      if (localhostRegex.test(origin) || localhostIPv4Regex.test(origin) || localhostIPv6Regex.test(origin)) {
+        console.log(`✅ Allowing localhost origin: ${origin}`)
+        return callback(null, true)
+      }
+
+      // Allow any local IP in development (for testing on different devices)
+      const localIPRegex = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)\d+\.\d+(:\d+)?$/
+      if (localIPRegex.test(origin)) {
+        console.log(`✅ Allowing local IP origin: ${origin}`)
+        return callback(null, true)
+      }
+    }
+
+    // Log blocked origin for debugging
+    console.warn(`⚠️  CORS blocked origin: ${origin}`)
+    console.log(`📋 Allowed origins: ${allowedOrigins.join(', ')}`)
+    
+    callback(new Error('Not allowed by CORS'))
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  optionsSuccessStatus: 200
-}))
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Access-Control-Request-Method', 'Access-Control-Request-Headers'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // 24 hours
+}
+
+app.use(cors(corsOptions))
 app.use(compression())
 app.use(limiter)
 app.use(morgan('combined'))
