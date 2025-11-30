@@ -160,10 +160,7 @@ router.get('/my-sessions', auth, asyncHandler(async (req: AuthRequest, res: expr
   const user = await User.findById(userId)
   
   if (!user) {
-    return res.status(404).json({
-      success: false,
-      message: 'User not found'
-    })
+    return ResponseHandler.notFound(res, 'User not found')
   }
 
   const query = user.role === 'candidate' 
@@ -181,10 +178,9 @@ router.get('/my-sessions', auth, asyncHandler(async (req: AuthRequest, res: expr
     .populate('assignedMentor', 'name email avatar company position')
     .sort({ scheduledDate: 1 })
 
-  return res.json({
-    success: true,
+  return ResponseHandler.success(res, { 
     sessions: sessions.map(session => session.toJSON())
-  })
+  }, 'Sessions retrieved successfully')
 }))
 
 // @route   GET /api/sessions/:id
@@ -196,25 +192,18 @@ router.get('/:id', auth, asyncHandler(async (req: AuthRequest, res: express.Resp
     .populate('mentor', 'name email avatar company position')
 
   if (!session) {
-    return res.status(404).json({
-      success: false,
-      message: 'Session not found'
-    })
+    return ResponseHandler.notFound(res, 'Session not found')
   }
 
   // Check if user has access to this session
   const userId = req.user!.userId
   if (session.candidate.toString() !== userId && (session.mentor && session.mentor.toString() !== userId)) {
-    return res.status(403).json({
-      success: false,
-      message: 'Access denied'
-    })
+    return ResponseHandler.forbidden(res, 'Access denied')
   }
 
-  return res.json({
-    success: true,
+  return ResponseHandler.success(res, { 
     session: session.toJSON()
-  })
+  }, 'Session retrieved successfully')
 }))
 
 // @route   PUT /api/sessions/:id/join
